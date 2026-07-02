@@ -1082,15 +1082,34 @@ function viewGantt(){
   serials.sort((a,b)=>(a.model||'').localeCompare(b.model||'')||(a.serial||'').localeCompare(b.serial||''));
   const wd=['일','월','화','수','목','금','토'];
   const th=`<th style="position:sticky;left:0;background:#eef2f6;z-index:3;min-width:150px;text-align:left;padding:4px 8px">장비 / 시리얼</th>`+days.map(ds=>{const d=new Date(ds+'T00:00');const isT=ds===today();return `<th style="min-width:30px;text-align:center;padding:3px 1px;${isT?'background:#dbeafe;color:#1d4ed8':''}">${d.getMonth()+1}/${d.getDate()}<div style="font-size:9px;color:${d.getDay()===0?'#dc2626':d.getDay()===6?'#2563eb':'#94a3b8'};font-weight:400">${wd[d.getDay()]}</div></th>`;}).join('');
+  const md=s=>s?((+s.slice(5,7))+'/'+(+s.slice(8,10))):'';
+  const covAt=(r,ds)=>{let sp=null;r.spans.forEach(s=>{if(s.st<=ds&&s.en>=ds){if(!sp||s.st>sp.st)sp=s;}});return sp;};
   const rows=serials.map(r=>{
-    const cells=days.map(ds=>{let sp=null;r.spans.forEach(s=>{if(s.st<=ds&&s.en>=ds){if(!sp||s.st>sp.st)sp=s;}});
-      const isT=ds===today();
-      if(!sp)return `<td style="border-right:1px solid #f1f5f9;min-width:30px;${isT?'background:#eff6ff':''}"></td>`;
-      const m=sp.m;const c=eKcol(m.kind);const showLbl=sp.st===ds||ds===winStart||new Date(ds+'T00:00').getDay()===1;
-      return `<td onclick="openEq('${m.id}')" title="${esc(m.kind+' · '+(m.hospital||'')+' · '+(m.start_date||'')+'~'+(m.end_date||'진행중')+(m.handler?' · '+m.handler:''))}" style="cursor:pointer;background:${c}26;border-top:1px solid ${c}66;border-bottom:1px solid ${c}66;font-size:9px;line-height:1.1;color:#334155;text-align:center;overflow:hidden;white-space:nowrap;padding:2px 1px">${showLbl?esc((m.hospital||m.kind).slice(0,4)):''}</td>`;
+    // 연속 구간(같은 이동)을 하나의 막대로 병합
+    const segs=[];let i=0;
+    while(i<N){const sp=covAt(r,days[i]);const mid=sp?sp.m.id:null;let j=i+1;
+      while(j<N){const sp2=covAt(r,days[j]);if((sp2?sp2.m.id:null)!==mid)break;j++;}
+      segs.push({sp,len:j-i});i=j;}
+    const cells=segs.map(g=>{
+      if(!g.sp)return `<td colspan="${g.len}" style="border-right:1px solid #eef2f6"></td>`;
+      const m=g.sp.m,c=eKcol(m.kind);
+      const ongoing=!m.end_date&&(m.kind==='데모'||m.kind==='대체'||m.kind==='교체');
+      const openL=(m.start_date||'')<winStart;
+      const openR=ongoing||(!!m.end_date&&m.end_date>winEnd);
+      const rad=`${openL?'0':'7px'} ${openR?'0':'7px'} ${openR?'0':'7px'} ${openL?'0':'7px'}`;
+      const range=md(m.start_date)+(ongoing?'~진행중':(m.end_date?'~'+md(m.end_date):''));
+      const title=esc(m.kind+' · '+(m.hospital||'')+' · '+(m.start_date||'')+'~'+(m.end_date||'진행중')+(m.handler?' · '+m.handler:''));
+      return `<td colspan="${g.len}" onclick="openEq('${m.id}')" title="${title}" style="padding:2px 2px;cursor:pointer">`
+        +`<div style="background:${c}24;border:1px solid ${c}80;border-left:3px solid ${c};border-radius:${rad};padding:3px 7px;font-size:11px;white-space:nowrap;overflow:hidden;display:flex;align-items:center;gap:6px">`
+        +`${openL?'<span style="color:'+c+';flex-shrink:0">◀</span>':''}`
+        +`<b style="color:#0f172a;overflow:hidden;text-overflow:ellipsis">${esc(m.hospital||m.kind)}</b>`
+        +`${g.len>=5?`<span style="color:${c};font-size:9.5px;font-weight:600;flex-shrink:0">${esc(range)}</span>`:''}`
+        +`${g.len>=9?`<span style="background:${c}22;color:${c};font-size:9px;font-weight:700;border-radius:4px;padding:0 4px;flex-shrink:0">${esc(m.kind)}</span>`:''}`
+        +`${openR?'<span style="margin-left:auto;color:'+c+';flex-shrink:0">▶</span>':''}`
+        +`</div></td>`;
     }).join('');
-    const cur=r.spans.find(s=>s.st<=today()&&s.en>=today());
-    return `<tr><td onclick="openAssetCard('${r.serial.replace(/'/g,"\\'")}')" style="position:sticky;left:0;background:#fff;cursor:pointer;white-space:nowrap;border-bottom:1px solid #eef2f6;padding:4px 8px"><b style="color:var(--ink);font-size:12px">${esc(r.model)||'-'}</b> <span style="color:#2563eb;font-size:11px">#${esc(r.serial)}</span>${cur?`<div style="font-size:10px;color:var(--muted)">📍${esc((cur.m.hospital||'').slice(0,16))}</div>`:''}</td>${cells}</tr>`;
+    const cur=covAt(r,today());
+    return `<tr><td onclick="openAssetCard('${r.serial.replace(/'/g,"\\'")}')" style="position:sticky;left:0;background:#fff;cursor:pointer;white-space:nowrap;border-bottom:1px solid #eef2f6;padding:5px 8px;z-index:1"><b style="color:var(--ink);font-size:12px">${esc(r.model)||'-'}</b> <span style="color:#2563eb;font-size:11px">#${esc(r.serial)}</span>${cur?`<div style="font-size:10px;color:var(--muted)">📍${esc((cur.m.hospital||'').slice(0,16))}</div>`:''}</td>${cells}</tr>`;
   }).join('')||`<tr><td colspan="${N+1}" style="text-align:center;color:var(--muted);padding:30px">이 기간에 진행 중인 장비가 없습니다</td></tr>`;
   const eqOpts=[...new Set(EMOVES.map(e=>e.equipment).filter(Boolean))].sort();
   const ctl=`<button class="btn btn-sm" onclick="ganttNav(-1)">◀ 2주</button><button class="btn btn-sm" onclick="ganttToday()">오늘</button><button class="btn btn-sm" onclick="ganttNav(1)">2주 ▶</button>`
