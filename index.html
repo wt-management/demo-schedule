@@ -170,7 +170,7 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
 </style>
 <script>
 const SB_URL='https://mhfacbsittfdkknwybhc.supabase.co',SB_KEY='sb_publishable_aPMOOWAlyJlMcP1ZM_gpPA_jlrcvCRd';
-const _sb=supabase.createClient(SB_URL,SB_KEY);
+const _sb=supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
 const CENTRAL='https://wt-management.github.io/wontech/';
 const STATUS={planned:{n:'예정',c:'#2563eb'},done:{n:'완료',c:'#16a34a'},canceled:{n:'취소',c:'#94a3b8'},noshow:{n:'노쇼',c:'#dc2626'}};
 const DTYPE=['신규','재데모','온라인','기타'];
@@ -205,7 +205,11 @@ async function equipAllowed(user){const MASTER='pmw0406@gmail.com';if((user.emai
     if(!p)return false;
     return (p.access||'').split(',').map(s=>s.trim()).indexOf('equip')>=0;
   }catch(e){return false;}}
-async function boot(){const{data}=await _sb.auth.getSession();if(data&&data.session)await enter(data.session.user);else if(location.hostname==='localhost'||location.hostname==='127.0.0.1'){DEMO=true;ME='demo@local';document.getElementById('uem').textContent=ME;document.getElementById('unm').textContent='demo';document.getElementById('uav').textContent='D';document.getElementById('demo-banner').classList.remove('hidden');OWN=lsGet();if(!OWN.length)seedDemo();afterLoad();}else location.href=CENTRAL;}
+async function boot(){let{data}=await _sb.auth.getSession();
+  if(!(data&&data.session)){await new Promise(r=>setTimeout(r,500));({data}=await _sb.auth.getSession());}  // 세션 복원 지연 대비 1회 재시도(새로고침 시 로그인 튕김 방지)
+  if(data&&data.session)await enter(data.session.user);
+  else if(location.hostname==='localhost'||location.hostname==='127.0.0.1'){DEMO=true;ME='demo@local';document.getElementById('uem').textContent=ME;document.getElementById('unm').textContent='demo';document.getElementById('uav').textContent='D';document.getElementById('demo-banner').classList.remove('hidden');OWN=lsGet();if(!OWN.length)seedDemo();afterLoad();}
+  else location.href=CENTRAL;}
 async function doLogin(){const e=(document.getElementById('li').value||'').trim(),p=(document.getElementById('lp').value||'').trim();const er=document.getElementById('le');er.style.display='none';const{data,error}=await _sb.auth.signInWithPassword({email:e,password:p});if(error){er.style.display='block';return;}await enter(data.user);}
 async function doLogout(){await _sb.auth.signOut();Object.keys(localStorage).filter(k=>k.startsWith('sb-')).forEach(k=>localStorage.removeItem(k));location.href=CENTRAL;}
 async function changePw(){const np=prompt('새 비밀번호 (6자 이상)');if(np===null)return;if((np||'').length<6){alert('6자 이상이어야 합니다.');return;}if(prompt('확인을 위해 다시 입력하세요')!==np){alert('일치하지 않습니다.');return;}const r=await _sb.auth.updateUser({password:np});if(r.error){alert('변경 실패: '+r.error.message);return;}alert('비밀번호가 변경되었습니다.');}
@@ -904,9 +908,12 @@ function homeBadge(){const b=document.getElementById('home-badge');if(!b)return;
   if(tot>0){b.textContent=tot;b.style.display='inline-block';}else b.style.display='none';}
 function viewHome(){
   const t=today();const A=OWN.concat(SYNC);
-  const ws=weekStart(new Date()),we=new Date(ws);we.setDate(we.getDate()+7);
+  const ws=weekStart(new Date()),we=new Date(ws);we.setDate(we.getDate()+7);const wsS=fmtDate(ws),weS=fmtDate(we);
   const inWeek=x=>{const d=new Date(x.date);return d>=ws&&d<we;};
-  const todayDemo=A.filter(x=>x.date===t),weekDemo=A.filter(inWeek),overdueDemo=A.filter(x=>x.status==='planned'&&x.date<t);
+  const demoMoves=EMOVES.filter(e=>e.kind==='데모'||e.kind==='대체');  // 실제 데모=장비이동(EMOVES) 기준(demo_schedules는 비어있어 0으로 떴었음)
+  const todayDemo=demoMoves.filter(e=>e.start_date===t).concat(OWN.filter(x=>x.date===t));
+  const weekDemo=demoMoves.filter(e=>e.start_date>=wsS&&e.start_date<weS).concat(OWN.filter(inWeek));
+  const overdueDemo=A.filter(x=>x.status==='planned'&&x.date<t);
   const out=EMOVES.filter(eOut),overdueOut=out.filter(e=>(eDays(e.start_date)||0)>60);
   const Q=TINOTBL?null:tiQueues();
   const tiComp=Q?Q.comp.rows:[],tiPay=Q?Q.pay.rows:[],tiUse=Q?Q.usage.rows:[],tiUncol=Q?Q.uncol.rows:[];
@@ -915,7 +922,7 @@ function viewHome(){
   const kT=(label,items,c)=>{const kk=reg(items);return `<div class="kpi clk" onclick="tiDrillK('${kk}','${esc(label)}')"><div class="v" style="${c?'color:'+c:''}">${items.length}</div><div class="l">${esc(label)} <i class="bi bi-list-ul" style="font-size:10px;opacity:.4"></i></div></div>`;};
   const onbAssets=assetSnapshot(t).filter(x=>x.onbook).length;
   const kInv=`<div class="kpi clk" onclick="setView('inv')"><div class="v" style="color:#0f172a">${onbAssets}</div><div class="l">보유 자산(재고) <i class="bi bi-box-seam" style="font-size:10px;opacity:.4"></i></div></div>`;
-  const kpiRow=`<div class="grid kpis">`+kD('오늘 데모',todayDemo)+kD('이번주 데모',weekDemo)+kD('현재 데모중 장비',out,'#2563eb')+kInv+(TINOTBL?'':kT('보상 미처리',tiComp,'#f59e0b')+kT('미회수 트레이드인',tiUncol,'#dc2626'))+`</div>`;
+  const kpiRow=`<div class="grid kpis">`+kD('오늘 데모 시작',todayDemo)+kD('이번주 데모 시작',weekDemo)+kD('현재 데모중 장비',out,'#2563eb')+kInv+`</div>`;  // 보상미처리·미회수는 아래 통합 할일에만(중복 제거)
   const todos=[];
   if(overdueDemo.length)todos.push({l:'데모 결과 미기록',n:overdueDemo.length,c:'#dc2626',act:`onclick="openRecsK('${reg(overdueDemo)}','데모 결과 미기록')"`});
   if(overdueOut.length)todos.push({l:'장기 미회수 데모 (60일↑)',n:overdueOut.length,c:'#ea580c',act:`onclick="openRecsK('${reg(overdueOut)}','장기 미회수 데모')"`});
@@ -928,8 +935,11 @@ function viewHome(){
   const todoH=todos.length?`<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px;margin-bottom:20px">${todos.map(x=>`<div class="kpi clk" style="border-left:4px solid ${x.c}" ${x.act}><div class="v" style="color:${x.c}">${x.n}</div><div class="l">${x.l} <i class="bi bi-arrow-right" style="font-size:10px"></i></div></div>`).join('')}</div>`:`<div class="card" style="text-align:center;color:var(--ok);padding:20px;margin-bottom:20px">✓ 지금 처리 대기 중인 항목이 없습니다</div>`;
   const em=eByDate(t),tm=TINOTBL?[]:tiByDate(t);
   const todayBox=(todayDemo.length+em.length+tm.length)?`<div class="card" style="margin-bottom:16px"><div class="sect"><span>📅 오늘 일정 <span class="muted" style="font-weight:400;font-size:11px">${t}</span></span><span style="margin-left:auto;font-size:12px;color:#2563eb;cursor:pointer" onclick="setView('cal')">통합 캘린더 →</span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px">${todayDemo.map(evCard).join('')}${em.map(eEvCard).join('')}${tm.map(tiEvCard).join('')}</div></div>`:'';
-  const avWarn=[];availModels().slice(0,20).forEach(m=>{const av=fleetOf(m,[t])-occupiedOn(m,t);if(av<=0)avWarn.push(m);});
-  const avBox=avWarn.length?`<div class="card" style="margin-bottom:16px"><div class="sect"><span>⚠️ 오늘 데모 불가(가용 0) 장비</span><span style="margin-left:auto;font-size:12px;color:#2563eb;cursor:pointer" onclick="setView('avail')">가용표 →</span></div>${avWarn.map(m=>`<span style="display:inline-block;background:#fee2e2;color:#dc2626;border-radius:8px;padding:4px 10px;font-size:12.5px;font-weight:700;margin:3px 5px 3px 0;cursor:pointer" onclick="setView('avail')">${esc(m)}</span>`).join('')}</div>`:'';
+  const fleetSet=Object.keys(FLEET||{}).length>0;  // 보유대수를 실제로 입력한 장비가 있어야 가용 판단 가능
+  const avWarn=[];availModels().forEach(m=>{if(FLEET[m]==null)return;const av=FLEET[m]-occupiedOn(m,t);if(av<=0)avWarn.push(m);});
+  const avBox=!fleetSet
+    ? `<div class="card" style="margin-bottom:16px;background:#fffbeb;border:1px solid #fde68a"><div style="font-size:12.5px;color:#92400e">ℹ️ <b>보유 대수 미설정</b> — 가용(데모 가능 대수) 경고를 보려면 <span style="color:#2563eb;cursor:pointer;text-decoration:underline;font-weight:600" onclick="setView('avail')">가용 예약</span>에서 장비별 실제 보유 대수를 입력하세요. (미설정 시 관측 최대치로만 추정돼 부정확)</div></div>`
+    : (avWarn.length?`<div class="card" style="margin-bottom:16px"><div class="sect"><span>⚠️ 오늘 데모 불가(가용 0) 장비</span><span style="margin-left:auto;font-size:12px;color:#2563eb;cursor:pointer" onclick="setView('avail')">가용표 →</span></div>${avWarn.map(m=>`<span style="display:inline-block;background:#fee2e2;color:#dc2626;border-radius:8px;padding:4px 10px;font-size:12.5px;font-weight:700;margin:3px 5px 3px 0;cursor:pointer" onclick="setView('avail')">${esc(m)}</span>`).join('')}</div>`:'');
   return head('🎛️ 통합 현황','데모 · 장비 출하 · 보상판매를 한 화면에 · 숫자·할일 클릭 → 바로 처리','')
     +`<div class="card" style="display:flex;gap:10px;align-items:center;margin-bottom:16px;padding:12px 16px;background:linear-gradient(90deg,#f8fafc,#eff6ff)"><span style="font-size:13.5px;font-weight:800;white-space:nowrap">🔎 장비 한 대 찾기</span><input id="asf" class="sel" style="flex:1;min-width:0" placeholder="시리얼 · 모델 · 병원 입력 후 Enter → 위치·이력·데모·보상 한눈에" onkeydown="if(event.key==='Enter')assetSearch(this.value)"><button class="btn btn-primary btn-sm" onclick="assetSearch(document.getElementById('asf').value)">검색</button></div>`
     +kpiRow
