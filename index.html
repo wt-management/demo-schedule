@@ -117,7 +117,8 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
       <div class="grp" style="margin-top:14px">데모</div>
       <a data-v="list"><span class="ico">📋</span><span class="lbl">데모 일정·결과</span></a>
       <a data-v="avail"><span class="ico">🗓️</span><span class="lbl">가용 예약</span></a>
-      <a data-v="stats"><span class="ico">📊</span><span class="lbl">데모 통계</span></a>
+      <a data-v="gantt"><span class="ico">📊</span><span class="lbl">진행 타임라인</span></a>
+      <a data-v="stats"><span class="ico">📈</span><span class="lbl">데모 통계</span></a>
       <div class="grp" style="margin-top:14px">장비 · 재고</div>
       <a data-v="estat"><span class="ico">🖥️</span><span class="lbl">장비·재고</span><span style="margin-left:auto;font-size:9px;color:#94a3b8">현황·자산·실사</span></a>
       <a data-v="elog"><span class="ico">📦</span><span class="lbl">출하 이력</span><span style="margin-left:auto;font-size:9px;color:#94a3b8">이력·분석</span></a>
@@ -276,7 +277,7 @@ function statusChip(s){const S=STATUS[s]||STATUS.planned;return `<span class="ch
 
 // ── 라우팅 ──
 const NAVMAP={inv:'estat',stock:'estat',eana:'elog',tilist:'tiwork',tirefurb:'tiwork'};  // 세부탭 → 대표 nav키(하나의 메뉴로 묶음)
-const VIEWS=['home','clinic','cal','list','stats','elog','estat','avail','eana','inv','stock','tiwork','tilist','tirefurb'];
+const VIEWS=['home','clinic','cal','gantt','list','stats','elog','estat','avail','eana','inv','stock','tiwork','tilist','tirefurb'];
 function navKey(v){return NAVMAP[v]||v;}
 function setNavActive(v){const k=navKey(v);document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.v===k));}
 function applyView(v){if(VIEWS.indexOf(v)<0)v='home';curView=v;setNavActive(v);const mbg=document.getElementById('mbg');if(mbg&&mbg.style.display==='flex')closeModal();render();window.scrollTo(0,0);}
@@ -290,7 +291,7 @@ document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',()=>se
 let _drill={},_dseq=0;
 function reg(arr){const k='d'+(_dseq++);_drill[k]=arr||[];return k;}
 function openRecsK(k,title,note){openRecs(title,_drill[k]||[],note);}
-function render(){_drill={};_dseq=0;const v=document.getElementById('view');v.innerHTML=curView==='home'?viewHome():curView==='clinic'?viewClinic():curView==='cal'?viewCal():curView==='list'?viewList():curView==='elog'?viewElog():curView==='estat'?viewEstat():curView==='avail'?viewAvail():curView==='eana'?viewEana():curView==='inv'?viewInv():curView==='stock'?viewStock():curView==='tiwork'?viewTiWork():curView==='tilist'?viewTiList():curView==='tirefurb'?viewTiRefurb():viewStats();tiBadge();homeBadge();}
+function render(){_drill={};_dseq=0;_tiv=[];const v=document.getElementById('view');v.innerHTML=curView==='home'?viewHome():curView==='clinic'?viewClinic():curView==='cal'?viewCal():curView==='list'?viewList():curView==='elog'?viewElog():curView==='estat'?viewEstat():curView==='avail'?viewAvail():curView==='gantt'?viewGantt():curView==='eana'?viewEana():curView==='inv'?viewInv():curView==='stock'?viewStock():curView==='tiwork'?viewTiWork():curView==='tilist'?viewTiList():curView==='tirefurb'?viewTiRefurb():viewStats();tiBadge();homeBadge();}
 function head(title,desc,actions){return `<div class="topbar"><div><h2>${title}</h2><div class="desc">${desc}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${actions||''}</div></div><div class="wrap">${notifBar()}`;}
 function filterBar(){const s=salesList();const bl=bsList();return `<select class="sel" onchange="fSales=this.value;render()"><option value="">담당 전체</option>${s.map(x=>`<option ${fSales===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`+
   (bl.length?`<select class="sel" onchange="fBs=this.value;render()"><option value="">운송(BS) 전체</option>${bl.map(x=>`<option ${fBs===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`:'')+
@@ -332,7 +333,7 @@ function calWeek(){
 function calMonth(){
   const y=refDate.getFullYear(),m=refDate.getMonth();const first=new Date(y,m,1);const start=weekStart(first);const dn=['월','화','수','목','금','토','일'];
   let cells='';for(let i=0;i<42;i++){const d=new Date(start);d.setDate(d.getDate()+i);const ds=fmtDate(d);const other=d.getMonth()!==m;const isT=ds===today();const evs=byDate(ds);
-    cells+=`<div class="mcell ${isT?'today':''} ${other?'other':''}" onclick="openModal({date:'${ds}'})"><div class="dn">${d.getDate()}</div>${evs.slice(0,4).map(e=>`<div class="mev" style="background:${(STATUS[e.status]||STATUS.planned).c}" onclick="event.stopPropagation();openView('${e.id}')">${e.time?e.time+' ':''}${esc(e.cust).slice(0,10)}</div>`).join('')}${showShip?eByDate(ds).slice(0,3).map(e=>`<div class="mev" style="background:${eKcol(e.kind)}" onclick="event.stopPropagation();openEq('${e.id}')" title="${esc(e.equipment+' · '+e.hospital)}">📦${esc(e.equipment).slice(0,8)}</div>`).join(''):''}${showShip?tiByDate(ds).slice(0,2).map(e=>`<div class="mev" style="background:#8b5cf6" onclick="event.stopPropagation();openItemTI('${(e.serial||'').replace(/'/g,'')}')" title="${esc('회수 '+e.recovDev+' · '+e.clinic)}">♻️${esc(e.recovDev).slice(0,7)}</div>`).join(''):''}${evs.length>4?`<div style="font-size:10px;color:var(--muted)">+${evs.length-4}</div>`:''}</div>`;}
+    cells+=`<div class="mcell ${isT?'today':''} ${other?'other':''}" onclick="openModal({date:'${ds}'})"><div class="dn">${d.getDate()}</div>${evs.slice(0,4).map(e=>`<div class="mev" style="background:${(STATUS[e.status]||STATUS.planned).c}" onclick="event.stopPropagation();openView('${e.id}')">${e.time?e.time+' ':''}${esc(e.cust).slice(0,10)}</div>`).join('')}${showShip?eByDate(ds).slice(0,3).map(e=>`<div class="mev" style="background:${eKcol(e.kind)}" onclick="event.stopPropagation();openEq('${e.id}')" title="${esc(e.equipment+' · '+e.hospital)}">📦${esc(e.equipment).slice(0,8)}</div>`).join(''):''}${showShip?tiByDate(ds).slice(0,2).map(e=>`<div class="mev" style="background:#8b5cf6" onclick="event.stopPropagation();openTiRef(${tiRef(e)})" title="${esc('회수 '+e.recovDev+' · '+e.clinic)}">♻️${esc(e.recovDev).slice(0,7)}</div>`).join(''):''}${evs.length>4?`<div style="font-size:10px;color:var(--muted)">+${evs.length-4}</div>`:''}</div>`;}
   return `<div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:10px">${y}년 ${m+1}월</div><div class="mgrid">${dn.map(x=>`<div class="mh">${x}</div>`).join('')}${cells}</div>`;
 }
 
@@ -591,6 +592,7 @@ function eSerialTag(s){if(!s)return'';const sv=String(s).replace(/'/g,'');return
 function hnorm(s){return String(s||'').replace(/[\s()（）\[\]·,.]/g,'').toLowerCase();}
 function relatedShip(cust){const c=hnorm(cust);if(!c)return[];return EMOVES.filter(e=>{const h=hnorm(e.hospital);return h&&(h.indexOf(c)>=0||c.indexOf(h)>=0);}).sort((a,b)=>(b.start_date||'').localeCompare(a.start_date||'')).slice(0,8);}
 function relatedDemo(hospital){const c=hnorm(hospital);if(!c)return[];return SYNC.concat(OWN).filter(x=>{const h=hnorm(x.cust);return h&&(h.indexOf(c)>=0||c.indexOf(h)>=0);}).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,6);}
+function relatedTradein(hospital){if(typeof TINOTBL!=='undefined'&&TINOTBL)return[];const c=hnorm(hospital);if(!c)return[];return (TI.items||[]).filter(x=>{const h=hnorm(x.clinic);return h&&(h.indexOf(c)>=0||c.indexOf(h)>=0);}).sort((a,b)=>(b.returnDate||'').localeCompare(a.returnDate||'')).slice(0,6);}
 
 // ③ 출하 분석
 function viewEana(){
@@ -648,7 +650,7 @@ function tiPending(){const Q=tiQueues();return Q.comp.rows.length+Q.pay.rows.len
 function tiBadge(){const b=document.getElementById('ti-badge');if(!b)return;const p=TINOTBL?0:tiPending();if(p>0){b.textContent=p;b.style.display='inline-block';}else b.style.display='none';}
 function tiByClinic(clinic){const c=hnorm(clinic);if(!c||TINOTBL)return[];return (TI.items||[]).filter(x=>{const h=hnorm(x.clinic);return h&&(h.indexOf(c)>=0||c.indexOf(h)>=0);}).slice(0,6);}
 function tiByDate(ds){return (TI.items||[]).filter(x=>x.returnDate===ds);}
-function tiEvCard(e){return `<div class="ev" style="border-left-color:#8b5cf6;background:#f5f3ff;padding:5px 8px" onclick="event.stopPropagation();openItemTI('${(e.serial||'').replace(/'/g,'')}')">
+function tiEvCard(e){return `<div class="ev" style="border-left-color:#8b5cf6;background:#f5f3ff;padding:5px 8px" onclick="event.stopPropagation();openTiRef(${tiRef(e)})">
   <div class="cust" style="margin:0"><b>${esc(e.recovDev)||'-'}</b>${e.serial?' <span style="font-size:10px;color:var(--muted);font-weight:400">#'+esc(e.serial)+'</span>':''} <span style="font-size:9.5px;font-weight:800;color:#6d28d9">회수</span></div>
   <div class="meta" style="margin:0">${esc(e.clinic)}${e.rep?' · '+esc(e.rep):''}</div></div>`;}
 
@@ -681,7 +683,7 @@ function tiQueueBox(){
       else if(k==='usage')act=`<button class="btn btn-sm" style="background:#2563eb;color:#fff;border-color:#2563eb" onclick="event.stopPropagation();quickSetTI('${s}',{usage:'리퍼'})">리퍼</button> <button class="btn btn-sm" onclick="event.stopPropagation();quickSetTI('${s}',{usage:'폐기'})">폐기</button>`;
       else if(k==='refurb')act=`<button class="btn btn-sm" style="background:#4f46e5;color:#fff;border-color:#4f46e5" onclick="event.stopPropagation();quickOutTI('${s}')">출고 →</button>`;
       const stat=(x.comp?'<span class="chip" style="background:#dcfce7;color:#16a34a">보상</span> ':'')+(x.paid?'<span class="chip" style="background:#dcfce7;color:#16a34a">입금</span> ':'')+tiUsage(x.usage);
-      return `<tr class="clk" onclick="openItemTI('${s}')"><td>${esc(x.returnDate||'-')}</td><td>${esc(x.clinic)}</td><td>${esc(x.recovDev)}</td><td>${esc(x.serial)}</td><td>${esc(x.rep)}</td><td>${stat}</td><td onclick="event.stopPropagation()">${act}</td></tr>`;}).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:22px">✓ 처리할 항목이 없습니다</td></tr>';
+      return `<tr class="clk" onclick="openTiRef(${tiRef(x)})"><td>${esc(x.returnDate||'-')}</td><td>${esc(x.clinic)}</td><td>${esc(x.recovDev)}</td><td>${esc(x.serial)}</td><td>${esc(x.rep)}</td><td>${stat}</td><td onclick="event.stopPropagation()">${act}</td></tr>`;}).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:22px">✓ 처리할 항목이 없습니다</td></tr>';
   }
   return `<div class="sect">${Q[_tiQ].label} <span class="muted" style="font-weight:400;font-size:12px">· ${rows0.length}건 · 버튼 바로처리 / 행 클릭 상세편집</span></div>`
     +`<input class="sel" style="margin-bottom:10px;width:260px" placeholder="🔍 큐 내 검색 (거래처·시리얼·담당)" value="${esc(_tiQSearch||'')}" onchange="_tiQSearch=this.value;render()">`
@@ -699,7 +701,7 @@ function tiEditSummary(e){const p=[];if(e.comp)p.push('보상처리');if(e.paid)
 function tiSetQueue(k){_tiQ=k;_tiQSearch='';render();}
 function tiDrillK(k,title){tiDrill(_drill[k]||[],title);}
 function tiDrill(rows,title){rows=(rows||[]).slice().sort((a,b)=>((b.returnDate||b.deliveryDate||'')).localeCompare(a.returnDate||a.deliveryDate||''));
-  const body=`<table><thead><tr><th>일자</th><th>거래처</th><th>납품장비</th><th>회수장비</th><th>시리얼</th><th>담당</th><th>보상</th><th>입금</th><th>활용</th></tr></thead><tbody>${rows.map(x=>`<tr class="clk" onclick="openItemTI('${(x.serial||'').replace(/'/g,'')}')"><td style="white-space:nowrap">${esc(x.returnDate||x.deliveryDate||'-')}</td><td>${esc(x.clinic)}</td><td>${esc(x.newDev)}</td><td>${esc(x.recovDev)}</td><td>${esc(x.serial)}</td><td>${esc(x.rep)}</td><td>${tiYn(x.comp,'완료','미처리')}</td><td>${tiYn(x.paid,'완료','미입금')}</td><td>${tiUsage(x.usage)}</td></tr>`).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:22px">내역 없음</td></tr>'}</tbody></table>`;
+  const body=`<table><thead><tr><th>일자</th><th>거래처</th><th>납품장비</th><th>회수장비</th><th>시리얼</th><th>담당</th><th>보상</th><th>입금</th><th>활용</th></tr></thead><tbody>${rows.map(x=>`<tr class="clk" onclick="openTiRef(${tiRef(x)})"><td style="white-space:nowrap">${esc(x.returnDate||x.deliveryDate||'-')}</td><td>${esc(x.clinic)}</td><td>${esc(x.newDev)}</td><td>${esc(x.recovDev)}</td><td>${esc(x.serial)}</td><td>${esc(x.rep)}</td><td>${tiYn(x.comp,'완료','미처리')}</td><td>${tiYn(x.paid,'완료','미입금')}</td><td>${tiUsage(x.usage)}</td></tr>`).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:22px">내역 없음</td></tr>'}</tbody></table>`;
   document.getElementById('modal').classList.add('recs');
   document.getElementById('modal').innerHTML=`<div class="mh"><h3>${esc(title)} <span class="muted" style="font-size:12px;font-weight:500">${rows.length}대</span></h3><button class="x" onclick="closeModal()">×</button></div><div class="mb" style="padding:0"><div style="overflow:auto;max-height:64vh">${body}</div></div><div class="mf" style="padding:12px 18px"><div class="muted" style="font-size:11.5px">행 클릭 → 상세/편집</div><button class="btn" onclick="closeModal()">닫기</button></div>`;
   document.getElementById('mbg').style.display='flex';
@@ -712,7 +714,10 @@ async function quickSetTI(serial,patch){
   tiApplyEdits();render();toast('처리됨 ✓');
 }
 function quickOutTI(serial){const d=prompt('출고처(거래처명)를 입력하세요:');if(d===null)return;quickSetTI(serial,{refurbOut:(d||'').trim(),outDate:today()});}
-function openItemTI(serial){const x=(TI.items||[]).find(i=>i.serial===serial);if(!x){toast('항목을 찾을 수 없습니다');return;}
+function openItemTI(serial){const x=(TI.items||[]).find(i=>String(i.serial)===String(serial));if(!x){toast('항목을 찾을 수 없습니다');return;}openItemTIObj(x);}
+let _tiv=[];function tiRef(x){_tiv.push(x);return _tiv.length-1;}  // 시리얼 없는 보상항목도 조회되게 인덱스 참조
+function openTiRef(i){const x=_tiv[i];if(x)openItemTIObj(x);else toast('항목을 찾을 수 없습니다');}
+function openItemTIObj(x){
   const ro=[['거래처',x.clinic],['납품장비(판매)',x.newDev],['회수장비',x.recovDev],['시리얼',x.serial],['제작년도',x.mfgYear],['실제 반납일',x.returnDate],['기안서 반납일',x.draftDate],['지급요청일',x.payReq],['영업담당',x.rep]];
   const usageOpts=['','리퍼','폐기','연구소','선행 연구','데모'];
   const ip='padding:6px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px;width:100%';
@@ -766,7 +771,7 @@ function viewTiList(){
     +`<select class="sel" onchange="_tiF.rep=this.value;render()"><option value="">전체 담당</option>${reps.map(d=>`<option ${f.rep===d?'selected':''}>${esc(d)}</option>`).join('')}</select>`
     +`<select class="sel" onchange="_tiF.status=this.value;render()"><option value="">전체 상태</option><option value="comp0" ${f.status==='comp0'?'selected':''}>보상 미처리</option><option value="paid0" ${f.status==='paid0'?'selected':''}>미입금</option><option value="usage0" ${f.status==='usage0'?'selected':''}>활용 미정</option><option value="refurb" ${f.status==='refurb'?'selected':''}>리퍼</option><option value="scrap" ${f.status==='scrap'?'selected':''}>폐기</option></select>`
     +`<select class="sel" onchange="_tiF.year=this.value;render()"><option value="">전체 연도</option>${yrs.map(y=>`<option ${f.year===y?'selected':''}>${y}</option>`).join('')}</select>`;
-  const body=rows.slice(0,600).map(x=>`<tr class="clk" onclick="openItemTI('${(x.serial||'').replace(/'/g,'')}')"><td style="white-space:nowrap">${esc(x.returnDate||'-')}</td><td>${esc(x.clinic)}</td><td>${esc(x.newDev)}</td><td>${esc(x.recovDev)}</td><td>${esc(x.serial)}</td><td>${esc(x.rep)}</td><td>${tiYn(x.comp,'완료','미처리')}</td><td>${tiYn(x.paid,'완료','미입금')}</td><td>${tiUsage(x.usage)}</td><td>${x.refurbOut?'<span class="chip" style="background:#dbeafe;color:#1d4ed8">'+esc(x.refurbOut)+'</span>':'-'}</td></tr>`).join('')||'<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">데이터 없음</td></tr>';
+  const body=rows.slice(0,600).map(x=>`<tr class="clk" onclick="openTiRef(${tiRef(x)})"><td style="white-space:nowrap">${esc(x.returnDate||'-')}</td><td>${esc(x.clinic)}</td><td>${esc(x.newDev)}</td><td>${esc(x.recovDev)}</td><td>${esc(x.serial)}</td><td>${esc(x.rep)}</td><td>${tiYn(x.comp,'완료','미처리')}</td><td>${tiYn(x.paid,'완료','미입금')}</td><td>${tiUsage(x.usage)}</td><td>${x.refurbOut?'<span class="chip" style="background:#dbeafe;color:#1d4ed8">'+esc(x.refurbOut)+'</span>':'-'}</td></tr>`).join('')||'<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">데이터 없음</td></tr>';
   return head('📋 회수 내역','보상판매 회수 장비 전체 · 행 클릭 → 상세/편집',bar)+tiTabs('tilist')
     +`<div class="muted" style="font-size:12px;margin-bottom:8px">${rows.length.toLocaleString()}대${rows.length>600?' 중 600대 표시':''}</div>`
     +`<div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>반납일</th><th>거래처</th><th>납품장비</th><th>회수장비</th><th>시리얼</th><th>담당</th><th>보상</th><th>입금</th><th>활용</th><th>리퍼출고</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
@@ -776,7 +781,7 @@ function viewTiRefurb(){
   const refurb=(TI.items||[]).filter(x=>x.usage==='리퍼');
   const outArr=refurb.filter(x=>x.refurbOut),stock=refurb.filter(x=>!x.refurbOut);
   const kpis=[{l:'리퍼 총계',v:refurb.length,items:refurb},{l:'재고(미출고)',v:stock.length,items:stock,c:'var(--ok)'},{l:'출고완료',v:outArr.length,items:outArr}];
-  const rows=refurb.slice().sort((a,b)=>(b.returnDate||'').localeCompare(a.returnDate||'')).map(x=>`<tr class="clk" onclick="openItemTI('${(x.serial||'').replace(/'/g,'')}')"><td>${x.refurbOut?'<span class="chip" style="background:#f1f5f9;color:#64748b">출고</span>':'<span class="chip" style="background:#dcfce7;color:#16a34a">재고</span>'}</td><td>${esc(x.recovDev)}</td><td>${esc(x.serial)}</td><td>${esc(x.mfgYear)}</td><td style="white-space:nowrap">${esc(x.returnDate||'-')}</td><td>${esc(x.clinic)}</td><td>${esc(x.refurbOut||'-')}</td><td>${esc(x.outDate||'-')}</td></tr>`).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">리퍼 없음</td></tr>';
+  const rows=refurb.slice().sort((a,b)=>(b.returnDate||'').localeCompare(a.returnDate||'')).map(x=>`<tr class="clk" onclick="openTiRef(${tiRef(x)})"><td>${x.refurbOut?'<span class="chip" style="background:#f1f5f9;color:#64748b">출고</span>':'<span class="chip" style="background:#dcfce7;color:#16a34a">재고</span>'}</td><td>${esc(x.recovDev)}</td><td>${esc(x.serial)}</td><td>${esc(x.mfgYear)}</td><td style="white-space:nowrap">${esc(x.returnDate||'-')}</td><td>${esc(x.clinic)}</td><td>${esc(x.refurbOut||'-')}</td><td>${esc(x.outDate||'-')}</td></tr>`).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">리퍼 없음</td></tr>';
   return head('♻️ 리퍼 재고 · 출고','리퍼 처리된 회수장비 재고/출고 · 숫자 클릭 → 내역','')+tiTabs('tirefurb')
     +`<div class="grid kpis">${kpis.map(k=>{const kk=reg(k.items);return `<div class="kpi clk" onclick="tiDrillK('${kk}','${esc(k.l)}')"><div class="v" style="color:${k.c||'var(--ink)'}">${k.v}대</div><div class="l">${esc(k.l)} <i class="bi bi-list-ul" style="font-size:10px;opacity:.45"></i></div></div>`;}).join('')}</div>`
     +`<div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>상태</th><th>회수장비</th><th>시리얼</th><th>제작년도</th><th>반납일</th><th>원거래처</th><th>출고처</th><th>출고일</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
@@ -873,7 +878,7 @@ function viewClinic(){
   const tis=(TI.items||[]).filter(x=>{const h=hnorm(x.clinic);return h&&(h.indexOf(c)>=0||c.indexOf(h)>=0);}).sort((a,b)=>(b.returnDate||'').localeCompare(a.returnDate||''));
   const secDemo=demos.length?`<div class="card" style="margin-bottom:14px;padding:0;overflow:auto"><div class="sect" style="padding:14px 16px 4px">📅 데모 약속 <span class="muted" style="font-weight:400;font-size:11px">${demos.length}건</span></div><table><thead><tr><th>일시</th><th>담당/BS</th><th>제품</th><th>상태</th><th>결과·메모</th></tr></thead><tbody>${demos.map(x=>`<tr class="clk" onclick="openView('${x.id}')"><td style="white-space:nowrap">${x.date} <span class="muted">${x.time||''}</span></td><td style="white-space:nowrap">${esc(x.sales)}${x.bs?' <span class="muted">🚚'+esc(x.bs)+'</span>':''}</td><td>${esc(x.product)}</td><td>${statusChip(x.status)}</td><td style="color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.outcome||x.content||'')}</td></tr>`).join('')}</tbody></table></div>`:'';
   const secMove=moves.length?`<div class="card" style="margin-bottom:14px;padding:0;overflow:auto"><div class="sect" style="padding:14px 16px 4px">📦 장비 출하 <span class="muted" style="font-weight:400;font-size:11px">${moves.length}건</span></div><table><thead><tr><th>일자</th><th>종류</th><th>장비/시리얼</th><th>담당</th><th>비고</th></tr></thead><tbody>${moves.map(x=>`<tr class="clk" onclick="openEq('${x.id}')"><td style="white-space:nowrap">${x.start_date||'-'}${x.end_date?' ~'+x.end_date:''}</td><td>${eKindChip(x.kind)}</td><td><b>${esc(x.equipment)}</b>${eSerialTag(x.serial)}</td><td style="white-space:nowrap">${esc(x.handler)}${eHtTag(x.handler_type)}</td><td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.note)}</td></tr>`).join('')}</tbody></table></div>`:'';
-  const secTi=tis.length?`<div class="card" style="margin-bottom:14px;padding:0;overflow:auto"><div class="sect" style="padding:14px 16px 4px">♻️ 보상판매(회수) <span class="muted" style="font-weight:400;font-size:11px">${tis.length}건</span></div><table><thead><tr><th>반납일</th><th>회수장비</th><th>시리얼</th><th>보상</th><th>입금</th><th>활용</th></tr></thead><tbody>${tis.map(x=>`<tr class="clk" onclick="openItemTI('${(x.serial||'').replace(/'/g,'')}')"><td>${x.returnDate||'-'}</td><td>${esc(x.recovDev)}</td><td>${esc(x.serial)}</td><td>${tiYn(x.comp,'완료','미처리')}</td><td>${tiYn(x.paid,'완료','미입금')}</td><td>${tiUsage(x.usage)}</td></tr>`).join('')}</tbody></table></div>`:'';
+  const secTi=tis.length?`<div class="card" style="margin-bottom:14px;padding:0;overflow:auto"><div class="sect" style="padding:14px 16px 4px">♻️ 보상판매(회수) <span class="muted" style="font-weight:400;font-size:11px">${tis.length}건</span></div><table><thead><tr><th>반납일</th><th>회수장비</th><th>시리얼</th><th>보상</th><th>입금</th><th>활용</th></tr></thead><tbody>${tis.map(x=>`<tr class="clk" onclick="openTiRef(${tiRef(x)})"><td>${x.returnDate||'-'}</td><td>${esc(x.recovDev)}</td><td>${esc(x.serial)}</td><td>${tiYn(x.comp,'완료','미처리')}</td><td>${tiYn(x.paid,'완료','미입금')}</td><td>${tiUsage(x.usage)}</td></tr>`).join('')}</tbody></table></div>`:'';
   const none=(!demos.length&&!moves.length&&!tis.length)?`<div class="card" style="text-align:center;color:var(--muted);padding:30px">"${esc(q)}" 관련 내역이 없습니다. 거래처명 일부만 입력해도 됩니다.</div>`:'';
   return head('🏥 '+esc(q),`데모 ${demos.length} · 출하 ${moves.length} · 보상 ${tis.length} — 통합 이력`,search)+secDemo+secMove+secTi+none;
 }
@@ -1034,7 +1039,7 @@ function openAssetCard(serial){serial=String(serial||'').trim();if(!serial)retur
   const tis=(typeof TINOTBL!=='undefined'&&!TINOTBL)?(TI.items||[]).filter(x=>rel(hnorm(x.clinic))).slice(0,12):[];
   const tl=moves.map(e=>`<div class="mv"><span style="width:9px;height:9px;border-radius:2px;background:${eKcol(e.kind)};flex-shrink:0"></span><span style="width:150px;font-size:12px;color:var(--muted);flex-shrink:0">${e.start_date||'-'}${e.end_date?' ~'+e.end_date:''}</span><span style="flex-shrink:0">${eKindChip(e.kind)}</span><span class="nm">${esc(e.hospital)||'-'}</span><span class="mut" style="font-size:11px;color:var(--muted)">${esc(e.handler)}</span></div>`).join('')||'<div class="muted" style="padding:8px">이동 이력 없음</div>';
   const demoRows=demos.map(x=>`<tr class="clk" onclick="closeModal();openView('${x.id}')"><td style="white-space:nowrap">${x.date||'-'}</td><td>${esc(x.cust)}</td><td>${esc(x.product)||'-'}</td><td>${statusChip(x.status)}</td></tr>`).join('')||'<tr><td colspan=4 class="muted" style="padding:10px;text-align:center">관련 데모 없음</td></tr>';
-  const tiRows=tis.map(x=>`<tr class="clk" onclick="closeModal();openItemTI('${String(x.serial||'').replace(/'/g,'')}')"><td>${x.returnDate||'-'}</td><td>${esc(x.clinic)}</td><td>${esc(x.recovDev)}</td><td>${tiUsage(x.usage)}</td></tr>`).join('')||'<tr><td colspan=4 class="muted" style="padding:10px;text-align:center">관련 보상 없음</td></tr>';
+  const tiRows=tis.map(x=>`<tr class="clk" onclick="closeModal();openTiRef(${tiRef(x)})"><td>${x.returnDate||'-'}</td><td>${esc(x.clinic)}</td><td>${esc(x.recovDev)}</td><td>${tiUsage(x.usage)}</td></tr>`).join('')||'<tr><td colspan=4 class="muted" style="padding:10px;text-align:center">관련 보상 없음</td></tr>';
   document.getElementById('modal').classList.add('recs');
   document.getElementById('modal').innerHTML=`<div class="mh"><h3>🖥️ ${esc(serial)} <span class="muted" style="font-size:12px;font-weight:500">${esc(a.model)}</span></h3><button class="x" onclick="closeModal()">×</button></div>
   <div class="mb" style="padding:0"><div style="overflow:auto;max-height:66vh;padding:16px">
@@ -1056,6 +1061,44 @@ function assetSearch(q){q=(q||'').trim();if(!q)return;const ql=q.toLowerCase();c
   const c=hnorm(q);const hospHit=c&&(EMOVES.some(e=>{const h=hnorm(e.hospital);return h&&(h.indexOf(c)>=0||c.indexOf(h)>=0);})||OWN.some(x=>{const h=hnorm(x.cust);return h&&(h.indexOf(c)>=0||c.indexOf(h)>=0);}));
   if(hospHit){_clinicSel=q;setView('clinic');return;}
   toast('"'+q+'" 에 해당하는 장비·거래처가 없습니다');
+}
+
+// ── 데모 진행 타임라인(간트): 장비×날짜, 뭐가 어디서 언제~언제 ──
+let ganttStart='',ganttEq='';
+function ganttBase(){if(ganttStart)return new Date(ganttStart+'T00:00');const d=new Date(today()+'T00:00');d.setDate(d.getDate()-3);return d;}
+function ganttSpanEnd(m,winEnd){if(m.end_date)return m.end_date;if(m.kind==='데모'||m.kind==='대체'||m.kind==='교체')return winEnd;/* 진행중=창끝까지 */return m.start_date;}
+function ganttNav(dir){const b=ganttBase();b.setDate(b.getDate()+dir*14);ganttStart=fmtDate(b);render();}
+function ganttToday(){ganttStart='';render();}
+function viewGantt(){
+  if(ENOTBL)return head('📊 데모 진행 타임라인','장비별 진행 현황','')+eNoTblBanner()+'</div>';
+  const N=35;const base=ganttBase();const days=[];for(let i=0;i<N;i++){const d=new Date(base);d.setDate(d.getDate()+i);days.push(fmtDate(d));}
+  const winStart=days[0],winEnd=days[N-1];
+  const bySerial={};EMOVES.forEach(e=>{const s=String(e.serial||'').trim();if(!s)return;(bySerial[s]=bySerial[s]||[]).push(e);});
+  let serials=Object.keys(bySerial).map(s=>{const ms=bySerial[s].slice().sort((a,b)=>(a.start_date||'').localeCompare(b.start_date||''));
+    const spans=ms.map(m=>({m,st:m.start_date||'',en:ganttSpanEnd(m,winEnd)})).filter(sp=>sp.st&&sp.en>=winStart&&sp.st<=winEnd);
+    return {serial:s,model:(ms[ms.length-1]||{}).equipment||'',spans};
+  }).filter(r=>r.spans.length);
+  if(ganttEq)serials=serials.filter(r=>r.model===ganttEq);
+  serials.sort((a,b)=>(a.model||'').localeCompare(b.model||'')||(a.serial||'').localeCompare(b.serial||''));
+  const wd=['일','월','화','수','목','금','토'];
+  const th=`<th style="position:sticky;left:0;background:#eef2f6;z-index:3;min-width:150px;text-align:left;padding:4px 8px">장비 / 시리얼</th>`+days.map(ds=>{const d=new Date(ds+'T00:00');const isT=ds===today();return `<th style="min-width:30px;text-align:center;padding:3px 1px;${isT?'background:#dbeafe;color:#1d4ed8':''}">${d.getMonth()+1}/${d.getDate()}<div style="font-size:9px;color:${d.getDay()===0?'#dc2626':d.getDay()===6?'#2563eb':'#94a3b8'};font-weight:400">${wd[d.getDay()]}</div></th>`;}).join('');
+  const rows=serials.map(r=>{
+    const cells=days.map(ds=>{let sp=null;r.spans.forEach(s=>{if(s.st<=ds&&s.en>=ds){if(!sp||s.st>sp.st)sp=s;}});
+      const isT=ds===today();
+      if(!sp)return `<td style="border-right:1px solid #f1f5f9;min-width:30px;${isT?'background:#eff6ff':''}"></td>`;
+      const m=sp.m;const c=eKcol(m.kind);const showLbl=sp.st===ds||ds===winStart||new Date(ds+'T00:00').getDay()===1;
+      return `<td onclick="openEq('${m.id}')" title="${esc(m.kind+' · '+(m.hospital||'')+' · '+(m.start_date||'')+'~'+(m.end_date||'진행중')+(m.handler?' · '+m.handler:''))}" style="cursor:pointer;background:${c}26;border-top:1px solid ${c}66;border-bottom:1px solid ${c}66;font-size:9px;line-height:1.1;color:#334155;text-align:center;overflow:hidden;white-space:nowrap;padding:2px 1px">${showLbl?esc((m.hospital||m.kind).slice(0,4)):''}</td>`;
+    }).join('');
+    const cur=r.spans.find(s=>s.st<=today()&&s.en>=today());
+    return `<tr><td onclick="openAssetCard('${r.serial.replace(/'/g,"\\'")}')" style="position:sticky;left:0;background:#fff;cursor:pointer;white-space:nowrap;border-bottom:1px solid #eef2f6;padding:4px 8px"><b style="color:var(--ink);font-size:12px">${esc(r.model)||'-'}</b> <span style="color:#2563eb;font-size:11px">#${esc(r.serial)}</span>${cur?`<div style="font-size:10px;color:var(--muted)">📍${esc((cur.m.hospital||'').slice(0,16))}</div>`:''}</td>${cells}</tr>`;
+  }).join('')||`<tr><td colspan="${N+1}" style="text-align:center;color:var(--muted);padding:30px">이 기간에 진행 중인 장비가 없습니다</td></tr>`;
+  const eqOpts=[...new Set(EMOVES.map(e=>e.equipment).filter(Boolean))].sort();
+  const ctl=`<button class="btn btn-sm" onclick="ganttNav(-1)">◀ 2주</button><button class="btn btn-sm" onclick="ganttToday()">오늘</button><button class="btn btn-sm" onclick="ganttNav(1)">2주 ▶</button>`
+    +`<select class="sel" onchange="ganttEq=this.value;render()"><option value="">장비 전체</option>${eqOpts.map(x=>`<option ${ganttEq===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`;
+  const legend=['데모','대체','교체','납품','철수'].map(k=>`<span style="font-size:11px;color:${eKcol(k)};background:${eKcol(k)}22;border-radius:5px;padding:2px 8px;margin-right:4px">${k}</span>`).join('');
+  return head('📊 데모 진행 타임라인',`${winStart} ~ ${winEnd} · ${serials.length}대 · 셀 클릭→이동 상세 · 장비명 클릭→자산카드`,ctl)
+    +`<div style="margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="muted" style="font-size:11px">범례</span>${legend}<span class="muted" style="font-size:11px;margin-left:auto">📍 = 오늘 위치</span></div>`
+    +`<div class="card" style="padding:0;overflow:auto"><table style="border-collapse:separate;border-spacing:0"><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 
 boot();
