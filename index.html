@@ -432,7 +432,7 @@ function mpRender(){document.getElementById('parts-box').innerHTML=partsBox();}
 function mpAdd(){const el=document.getElementById('mp-new');const v=(el.value||'').trim();if(!v)return;_mp.push({name:v,done:false});mpRender();const n=document.getElementById('mp-new');if(n)n.focus();}
 function mpDel(i){_mp.splice(i,1);mpRender();}
 function mpPreset(){const prod=(document.getElementById('f-prod')||{}).value||'';presetParts(prod).forEach(n=>{if(!_mp.some(p=>p.name===n))_mp.push({name:n,done:false});});mpRender();}
-function closeModal(){document.getElementById('mbg').style.display='none';document.getElementById('modal').classList.remove('recs');}
+function closeModal(){document.getElementById('mbg').style.display='none';document.getElementById('modal').classList.remove('recs');if(_eqPdfUrl){try{URL.revokeObjectURL(_eqPdfUrl);}catch(e){}_eqPdfUrl='';}}
 // 공용 드릴다운 — 어떤 숫자든 클릭 시 그 내역 목록 (검증용)
 function openRecs(title,items,note){items=(items||[]).filter(Boolean);
   const isEq=items.length&&('equipment'in items[0])&&('kind'in items[0])&&!('cust'in items[0]);
@@ -510,7 +510,7 @@ function viewElog(){
     <td>${esc(e.hospital)||'-'}</td>
     <td style="white-space:nowrap">${esc(e.handler)||'-'}${eHtTag(e.handler_type)}</td>
     <td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.note)}</td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">데이터 없음</td></tr>';
-  return head('📦 출하 이력','데모·납품·철수·교체 장비 이동 대장 · 행 클릭 → 수정',eFilterBar()+(ENOTBL?'':`<button class="btn btn-primary" onclick="openEq()">+ 출하 추가</button>`))+shipTabs('elog')+eNoTblBanner()+eOverdueBanner()
+  return head('📦 출하 이력','데모·납품·철수·교체 장비 이동 대장 · 행 클릭 → 수정',eFilterBar()+(ENOTBL?'':`<label class="btn btn-sm" style="cursor:pointer" title="출고기안서 PDF 업로드 → 파일명 자동채움 + 원본 미리보기"><i class="bi bi-file-earmark-pdf"></i> PDF로 추가<input type="file" accept="application/pdf,.pdf" style="display:none" onchange="onEqPdf(this)"></label> <button class="btn btn-primary" onclick="openEq()">+ 출하 추가</button>`))+shipTabs('elog')+eNoTblBanner()+eOverdueBanner()
     +`<div class="muted" style="font-size:12px;margin-bottom:8px">${A.length.toLocaleString()}건${A.length>400?' 중 최근 400건 표시':''}</div>`
     +`<div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>일자</th><th>종류</th><th>장비 / 시리얼</th><th>병원</th><th>담당</th><th>비고</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
@@ -536,9 +536,33 @@ function viewEstat(){
     +`<div class="card" style="padding:0;overflow:auto"><div class="sect" style="padding:14px 16px 4px"><span>현재 나가있는 데모 장비 <span class="muted" style="font-weight:400;font-size:11px">· 경과일 순 · 빨강=60일↑ · ↩철수 💰납품전환</span></span></div><table><thead><tr><th>장비 / 시리얼</th><th>병원</th><th>시작일</th><th>경과일</th><th>담당</th><th>액션</th></tr></thead><tbody>${outRows}</tbody></table></div></div>`;
 }
 
+// ── 출고기안서 PDF 업로드 → 파일명 자동추출 + 원본 미리보기 ──
+var _eqPdfUrl='';
+function splitHospEq(rest){rest=(rest||'').trim();const eqs=equipList();
+  for(const e of eqs){if(e&&rest.toLowerCase().endsWith(' '+e.toLowerCase())){return {hosp:rest.slice(0,rest.length-e.length).trim(),eq:e};}}
+  const toks=rest.split(/\s+/);const i=toks.findIndex(t=>/[A-Za-z]/.test(t));  // 첫 영문토큰=장비 시작(병원명=한글 가정)
+  if(i>0)return {hosp:toks.slice(0,i).join(' '),eq:toks.slice(i).join(' ')};
+  return {hosp:rest,eq:''};}
+function parseEqFilename(fn){fn=(fn||'').replace(/\.pdf$/i,'');const out={};
+  const md=fn.match(/-(\d{6})-\d+\s*\]/)||fn.match(/(\d{6})/);
+  if(md){const s=md[1];out.date='20'+s.slice(0,2)+'-'+s.slice(2,4)+'-'+s.slice(4,6);}
+  const doc=fn.match(/\[([^\]]*(?:출고|기안|납품|데모|철수|교체|회수)[^\]]*)\]/);const d=doc?doc[1]:'';
+  let rest=fn.replace(/^.*\]\s*/,'').trim();                          // 마지막 대괄호 뒤
+  const no=rest.match(/_([A-Za-z0-9-]+)\s*$/);if(no){out.docno=no[1];rest=rest.slice(0,no.index).trim();}
+  const sp=splitHospEq(rest);out.hospital=sp.hosp;out.equipment=sp.eq;
+  out.kind=/데모/.test(d)?'데모':/철수|회수/.test(d)?'철수':/교체/.test(d)?'교체':'납품';
+  return out;}
+function onEqPdf(input){const f=input.files&&input.files[0];if(!f)return;
+  if(!/\.pdf$/i.test(f.name)&&f.type!=='application/pdf'){toast('PDF 파일을 올려주세요');input.value='';return;}
+  const p=parseEqFilename(f.name);
+  if(_eqPdfUrl){try{URL.revokeObjectURL(_eqPdfUrl);}catch(e){}}
+  _eqPdfUrl=URL.createObjectURL(f);input.value='';
+  openEq(null,{kind:p.kind||'납품',equipment:p.equipment||'',hospital:p.hospital||'',start_date:p.date||today(),note:p.docno?('출고기안서 '+p.docno):''});
+  toast('파일명 자동추출 완료 — 시리얼·담당자는 아래 PDF 보고 입력');}
 function openEq(id,pre){const e=id?EMOVES.find(x=>x.id===id):null;const v=e||Object.assign({kind:'데모',equipment:'',serial:'',start_date:today(),end_date:'',hospital:'',address:'',handler:'',handler_type:'',note:''},pre||{});const editing=!!e;const eqs=equipList();
-  document.getElementById('modal').innerHTML=`<div class="mh"><h3>${editing?'출하 수정':'출하 추가'}</h3><button class="x" onclick="closeModal()">×</button></div>
+  document.getElementById('modal').innerHTML=`<div class="mh"><h3>${editing?'출하 수정':(_eqPdfUrl?'출하 추가 (PDF 자동채움)':'출하 추가')}</h3><button class="x" onclick="closeModal()">×</button></div>
     <div class="mb">
+      ${_eqPdfUrl?`<div style="margin-bottom:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;padding:10px"><div style="font-size:12px;font-weight:700;color:#1d4ed8;margin-bottom:6px">📄 업로드한 출고기안서 — 파일명은 자동 채웠습니다. <b>시리얼·담당자</b>는 아래 원본에서 확인해 입력하세요.</div><embed src="${_eqPdfUrl}" type="application/pdf" style="width:100%;height:320px;border:1px solid var(--line);border-radius:8px;background:#fff"></div>`:''}
       <div class="fr3"><div class="fld"><label>종류</label><select id="e-kind">${EKINDS.map(k=>`<option ${v.kind===k?'selected':''}>${k}</option>`).join('')}</select></div><div class="fld"><label>시작일</label><input id="e-start" type="date" value="${v.start_date||''}"></div><div class="fld"><label>철수/종료일</label><input id="e-end" type="date" value="${v.end_date||''}"></div></div>
       <div class="fr"><div class="fld"><label>장비명</label><input id="e-eq" list="eqdl" value="${esc(v.equipment)}" placeholder="예: Oligio X"><datalist id="eqdl">${eqs.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div><div class="fld"><label>시리얼</label><input id="e-serial" value="${esc(v.serial)}" placeholder="예: #258"></div></div>
       <div class="fld"><label>병원 / 거래처</label><input id="e-hosp" value="${esc(v.hospital)}" placeholder="예: 아비쥬의원 명동점"></div>
