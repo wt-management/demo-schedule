@@ -218,7 +218,9 @@ async function enter(user){
   await loadTradein();
   afterLoad();
 }
-function afterLoad(){if(DEMO&&!SYNC.length)seedSync();if(!lastSeen())markSeenSilent();document.getElementById('boot-ov').style.display='none';document.getElementById('app').style.display='block';render();}
+function afterLoad(){if(DEMO&&!SYNC.length)seedSync();if(!lastSeen())markSeenSilent();document.getElementById('boot-ov').style.display='none';document.getElementById('app').style.display='block';
+  const _h=(location.hash||'').replace('#','');if(['cal','list','stats','elog','estat','eana','tiwork','tilist','tirefurb'].indexOf(_h)>=0){curView=_h;document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.v===_h));}
+  render();}
 function mapOwn(r){return{id:r.id,date:r.date,time:r.time||'',cust:r.cust||'',sales:r.sales||'',bs:r.bs||'',product:r.product||'',content:r.content||'',demo_type:r.demo_type||'신규',status:r.status||'planned',outcome:r.outcome||'',follow_up:r.follow_up||'',attendees:r.attendees||'',parts:Array.isArray(r.parts)?r.parts:[],created_at:r.created_at||'',source:'direct'};}
 
 // ── localStorage 데모 ──
