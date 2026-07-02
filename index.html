@@ -1253,7 +1253,7 @@ function viewGantt(){
   function durOf(r){const cur=covAt(r,t);if(!cur)return {days:-1,isLong:false};const dd=eDays(cur.m.start_date)||0;const ong=!cur.m.end_date||cur.m.end_date>=t;return {days:dd,isLong:ong&&(cur.m.kind==='데모'||cur.m.kind==='대체'||cur.m.kind==='교체')&&dd>=30};}
   // 제품군 그룹핑
   const groups={};serials.forEach(r=>{(groups[r.model]=groups[r.model]||[]).push(r);});
-  const modelNames=Object.keys(groups).sort((a,b)=>a.localeCompare(b));_ganttModels=modelNames;
+  const modelNames=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length||a.localeCompare(b));_ganttModels=modelNames;  // 대수 많은 순
   let body='';
   modelNames.forEach(mn=>{const gr=groups[mn].map(r=>({r,d:durOf(r)}));
     const short=gr.filter(x=>!x.d.isLong).sort((a,b)=>a.d.days-b.d.days);
