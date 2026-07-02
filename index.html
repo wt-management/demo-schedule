@@ -1250,7 +1250,7 @@ function viewGantt(){
   function unitRow(r,long){const cur=covAt(r,t);
     const idHtml=r.serial?`<span style="color:#2563eb;font-size:12px;font-weight:700">#${esc(/^#/.test(r.serial)?r.serial.slice(1):r.serial)}</span>`:`<span style="color:#475569;font-size:11.5px;font-weight:600">${esc((r.hosp||'미상').slice(0,12))}</span><span style="font-size:8.5px;color:#b45309;background:#fef3c7;border-radius:3px;padding:0 3px;margin-left:4px" title="시리얼 미기재 — 같은 장비 추적 불가">시리얼無</span>`;
     const click=r.serial?`openAssetCard('${r.serial.replace(/'/g,"\\'")}')`:`openEq('${r.mid}')`;
-    return `<tr style="${long?'background:#fffdfa':''}"><td onclick="${click}" style="position:sticky;left:0;background:${long?'#fffdfa':'#fff'};cursor:pointer;white-space:nowrap;border-bottom:1px solid #f1f5f9;padding:4px 8px 4px 24px;z-index:1">${idHtml}${cur&&r.serial?`<span style="font-size:10px;color:var(--muted);margin-left:6px">📍${esc((cur.m.hospital||'').slice(0,14))}</span>`:''}</td>${barCells(r)}</tr>`;}
+    return `<tr style="${long?'background:#fffdfa':''}"><td onclick="${click}" style="position:sticky;left:0;background:${long?'#fffdfa':'#fff'};cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid #f1f5f9;padding:4px 8px 4px 20px;z-index:1">${idHtml}${cur&&r.serial?`<span style="font-size:10px;color:var(--muted);margin-left:6px">📍${esc((cur.m.hospital||'').slice(0,14))}</span>`:''}</td>${barCells(r)}</tr>`;}
   function durOf(r){const cur=covAt(r,t);if(!cur)return {days:-1,isLong:false};const dd=eDays(cur.m.start_date)||0;const ong=!cur.m.end_date||cur.m.end_date>=t;return {days:dd,isLong:ong&&(cur.m.kind==='데모'||cur.m.kind==='대체'||cur.m.kind==='교체')&&dd>=30};}
   // 제품군 그룹핑
   const groups={};serials.forEach(r=>{(groups[r.model]=groups[r.model]||[]).push(r);});
@@ -1274,7 +1274,7 @@ function viewGantt(){
   const legend=['데모','대체','교체','납품','철수'].map(k=>`<span style="font-size:11px;color:${eKcol(k)};background:${eKcol(k)}22;border-radius:5px;padding:2px 8px;margin-right:4px">${k}</span>`).join('');
   return head('📊 데모 진행 타임라인',`${winStart} ~ ${winEnd} · ${serials.length}대 · 제품군 헤더 클릭→접기/펼치기 · 막대 클릭→상세 · 짧은 데모 위 / 장기(1개월↑) 아래`,ctl)
     +`<div style="margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="muted" style="font-size:11px">범례</span>${legend}${serialLess?`<span style="font-size:11px;color:#b45309;background:#fef3c7;border-radius:5px;padding:2px 8px" title="시리얼 미기재 이동은 병원명으로 표시(같은 장비 추적 불가)">시리얼無 ${serialLess}건 = 병원명 표시</span>`:''}<span class="muted" style="font-size:11px;margin-left:auto">📍 = 오늘 위치</span></div>`
-    +`<div class="card" style="padding:0;overflow:auto"><table style="border-collapse:separate;border-spacing:0;table-layout:fixed;width:${150+N*34}px"><colgroup><col style="width:150px">${days.map(()=>'<col style="width:34px">').join('')}</colgroup><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+    +`<div class="card" style="padding:0;overflow:auto"><table style="border-collapse:separate;border-spacing:0;table-layout:fixed;width:100%;min-width:${190+N*34}px"><colgroup><col style="width:190px">${days.map(()=>'<col>').join('')}</colgroup><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 
 boot();
