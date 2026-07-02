@@ -432,7 +432,7 @@ function mpRender(){document.getElementById('parts-box').innerHTML=partsBox();}
 function mpAdd(){const el=document.getElementById('mp-new');const v=(el.value||'').trim();if(!v)return;_mp.push({name:v,done:false});mpRender();const n=document.getElementById('mp-new');if(n)n.focus();}
 function mpDel(i){_mp.splice(i,1);mpRender();}
 function mpPreset(){const prod=(document.getElementById('f-prod')||{}).value||'';presetParts(prod).forEach(n=>{if(!_mp.some(p=>p.name===n))_mp.push({name:n,done:false});});mpRender();}
-function closeModal(){document.getElementById('mbg').style.display='none';document.getElementById('modal').classList.remove('recs');if(_eqPdfUrl){try{URL.revokeObjectURL(_eqPdfUrl);}catch(e){}_eqPdfUrl='';}}
+function closeModal(){document.getElementById('mbg').style.display='none';document.getElementById('modal').classList.remove('recs');if(_eqPdfUrl){try{URL.revokeObjectURL(_eqPdfUrl);}catch(e){}_eqPdfUrl='';}_eqPdfFile=null;}
 // 공용 드릴다운 — 어떤 숫자든 클릭 시 그 내역 목록 (검증용)
 function openRecs(title,items,note){items=(items||[]).filter(Boolean);
   const isEq=items.length&&('equipment'in items[0])&&('kind'in items[0])&&!('cust'in items[0]);
@@ -537,7 +537,7 @@ function viewEstat(){
 }
 
 // ── 출고기안서 PDF 업로드 → 파일명 자동추출 + 원본 미리보기 ──
-var _eqPdfUrl='';
+var _eqPdfUrl='',_eqPdfFile=null,_eqOcrText='';
 function splitHospEq(rest){rest=(rest||'').trim();const eqs=equipList();
   for(const e of eqs){if(e&&rest.toLowerCase().endsWith(' '+e.toLowerCase())){return {hosp:rest.slice(0,rest.length-e.length).trim(),eq:e};}}
   const toks=rest.split(/\s+/);const i=toks.findIndex(t=>/[A-Za-z]/.test(t));  // 첫 영문토큰=장비 시작(병원명=한글 가정)
@@ -556,13 +556,43 @@ function onEqPdf(input){const f=input.files&&input.files[0];if(!f)return;
   if(!/\.pdf$/i.test(f.name)&&f.type!=='application/pdf'){toast('PDF 파일을 올려주세요');input.value='';return;}
   const p=parseEqFilename(f.name);
   if(_eqPdfUrl){try{URL.revokeObjectURL(_eqPdfUrl);}catch(e){}}
-  _eqPdfUrl=URL.createObjectURL(f);input.value='';
+  _eqPdfUrl=URL.createObjectURL(f);_eqPdfFile=f;_eqOcrText='';input.value='';
   openEq(null,{kind:p.kind||'납품',equipment:p.equipment||'',hospital:p.hospital||'',start_date:p.date||today(),note:p.docno?('출고기안서 '+p.docno):''});
-  toast('파일명 자동추출 완료 — 시리얼·담당자는 아래 PDF 보고 입력');}
+  runEqOcr();  // 비동기 OCR(시리얼 초안) · 논블로킹 · PDF 저장 안 함
+  toast('파일명 자동추출 완료 · OCR로 시리얼 인식 시작…');}
+// PDF는 저장 안 함(브라우저에서만 인식). Tesseract 모델은 브라우저 캐시(Supabase 용량과 무관).
+function ensureOcrLibs(){return new Promise((res,rej)=>{
+  const load=(url,ok)=>new Promise((rs,rj)=>{if(ok()){rs();return;}const s=document.createElement('script');s.src=url;s.onload=()=>rs();s.onerror=()=>rj(new Error('스크립트 로드 실패'));document.head.appendChild(s);});
+  load('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',()=>typeof pdfjsLib!=='undefined')
+    .then(()=>{try{pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}catch(e){}})
+    .then(()=>load('https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js',()=>typeof Tesseract!=='undefined'))
+    .then(res,rej);});}
+function extractSerial(text){if(!text)return'';const lines=text.split(/\n/);
+  const kw=/(s\s*\/?\s*n|serial|시리얼|씨리얼|제조\s*번호|기기\s*번호|s\.?n)/i;
+  for(const ln of lines){if(kw.test(ln)){const m=ln.replace(kw,' ').match(/[A-Za-z0-9][A-Za-z0-9\-]{4,}/);if(m)return m[0];}}
+  const cand=(text.match(/\b[A-Za-z]{1,5}-?\d{5,}\b/g)||text.match(/\b\d{6,}\b/g)||[]);
+  return cand[0]||'';}
+async function runEqOcr(){const st=()=>document.getElementById('ocr-status');if(!_eqPdfFile||!st())return;
+  try{
+    st().innerHTML='🔍 OCR 준비 중… <span style="color:#94a3b8">(처음엔 인식모델 다운로드로 시간이 걸릴 수 있어요)</span>';
+    await ensureOcrLibs();
+    const buf=await _eqPdfFile.arrayBuffer();const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    let text='';const pages=Math.min(pdf.numPages,2);
+    for(let p=1;p<=pages;p++){const page=await pdf.getPage(p);const vp=page.getViewport({scale:2});
+      const cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;
+      await page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+      const r=await Tesseract.recognize(cv,'kor+eng',{logger:m=>{const e=st();if(e)e.innerHTML='🔍 인식 중… '+(m.status||'')+' '+Math.round((m.progress||0)*100)+'%';}});
+      text+='\n'+((r.data&&r.data.text)||'');}
+    _eqOcrText=text;const ser=extractSerial(text);const si=document.getElementById('e-serial');
+    if(ser&&si&&!si.value){si.value=ser;si.style.background='#fef9c3';si.title='OCR 자동 초안 — 확인·수정하세요';}
+    const e=st();if(e)e.innerHTML=(ser?`✅ OCR 완료 · 시리얼 초안 <b>${esc(ser)}</b> 채움 <span style="color:#b45309">(노란칸 — 저장 전 확인)</span>`:'✅ OCR 완료 · 시리얼 자동추출 실패 — 인식결과에서 직접 확인')
+      +` <button type="button" class="btn btn-sm" style="padding:2px 8px" onclick="var r=document.getElementById('ocr-raw');r.style.display=r.style.display==='none'?'block':'none'">인식결과</button>`
+      +`<pre id="ocr-raw" style="display:none;white-space:pre-wrap;font-size:10px;max-height:130px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:6px;padding:8px;margin:6px 0 0">${esc((text||'').trim().slice(0,1600))}</pre>`;
+  }catch(e){const el=st();if(el)el.innerHTML='⚠️ OCR 실패: '+esc(e.message||'알 수 없음')+' — 시리얼은 PDF 보고 직접 입력하세요';}}
 function openEq(id,pre){const e=id?EMOVES.find(x=>x.id===id):null;const v=e||Object.assign({kind:'데모',equipment:'',serial:'',start_date:today(),end_date:'',hospital:'',address:'',handler:'',handler_type:'',note:''},pre||{});const editing=!!e;const eqs=equipList();
   document.getElementById('modal').innerHTML=`<div class="mh"><h3>${editing?'출하 수정':(_eqPdfUrl?'출하 추가 (PDF 자동채움)':'출하 추가')}</h3><button class="x" onclick="closeModal()">×</button></div>
     <div class="mb">
-      ${_eqPdfUrl?`<div style="margin-bottom:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;padding:10px"><div style="font-size:12px;font-weight:700;color:#1d4ed8;margin-bottom:6px">📄 업로드한 출고기안서 — 파일명은 자동 채웠습니다. <b>시리얼·담당자</b>는 아래 원본에서 확인해 입력하세요.</div><embed src="${_eqPdfUrl}" type="application/pdf" style="width:100%;height:320px;border:1px solid var(--line);border-radius:8px;background:#fff"></div>`:''}
+      ${_eqPdfUrl?`<div style="margin-bottom:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;padding:10px"><div style="font-size:12px;font-weight:700;color:#1d4ed8;margin-bottom:6px">📄 업로드한 출고기안서 — 파일명 자동채움 + OCR 시리얼 초안. <b>저장 전 반드시 확인</b>하세요. <span style="font-weight:400;color:#64748b">(PDF는 저장 안 됨)</span></div><div id="ocr-status" style="font-size:11.5px;color:#475569;margin-bottom:8px">🔍 OCR 대기…</div><embed src="${_eqPdfUrl}" type="application/pdf" style="width:100%;height:300px;border:1px solid var(--line);border-radius:8px;background:#fff"></div>`:''}
       <div class="fr3"><div class="fld"><label>종류</label><select id="e-kind">${EKINDS.map(k=>`<option ${v.kind===k?'selected':''}>${k}</option>`).join('')}</select></div><div class="fld"><label>시작일</label><input id="e-start" type="date" value="${v.start_date||''}"></div><div class="fld"><label>철수/종료일</label><input id="e-end" type="date" value="${v.end_date||''}"></div></div>
       <div class="fr"><div class="fld"><label>장비명</label><input id="e-eq" list="eqdl" value="${esc(v.equipment)}" placeholder="예: Oligio X"><datalist id="eqdl">${eqs.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div><div class="fld"><label>시리얼</label><input id="e-serial" value="${esc(v.serial)}" placeholder="예: #258"></div></div>
       <div class="fld"><label>병원 / 거래처</label><input id="e-hosp" value="${esc(v.hospital)}" placeholder="예: 아비쥬의원 명동점"></div>
