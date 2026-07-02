@@ -199,8 +199,9 @@ function nowISO(){return new Date().toISOString();}
 
 // ── 부트/로그인 ──
 async function equipAllowed(user){const MASTER='pmw0406@gmail.com';if((user.email||'')===MASTER)return true;
-  try{const{data:p}=await _sb.from('crm_profiles').select('access,role').eq('id',user.id).maybeSingle();
-    if(!p)return false;if(p.role==='admin')return true;
+  // 장비 통합관리는 equip 권한자만(다른 사이트와 달리 admin 자동통과 없음 — 영업전략파트+마스터 전용)
+  try{const{data:p}=await _sb.from('crm_profiles').select('access').eq('id',user.id).maybeSingle();
+    if(!p)return false;
     return (p.access||'').split(',').map(s=>s.trim()).indexOf('equip')>=0;
   }catch(e){return false;}}
 async function boot(){const{data}=await _sb.auth.getSession();if(data&&data.session)await enter(data.session.user);else if(location.hostname==='localhost'||location.hostname==='127.0.0.1'){DEMO=true;ME='demo@local';document.getElementById('uem').textContent=ME;document.getElementById('unm').textContent='demo';document.getElementById('uav').textContent='D';document.getElementById('demo-banner').classList.remove('hidden');OWN=lsGet();if(!OWN.length)seedDemo();afterLoad();}else location.href=CENTRAL;}
