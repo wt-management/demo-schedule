@@ -118,6 +118,7 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
       <div class="grp" style="margin-top:14px">장비 관리</div>
       <a data-v="elog"><span class="ico">📦</span><span class="lbl">출하 이력</span></a>
       <a data-v="estat"><span class="ico">🖥️</span><span class="lbl">장비 현황</span></a>
+      <a data-v="avail"><span class="ico">🗓️</span><span class="lbl">장비 가용</span></a>
       <a data-v="eana"><span class="ico">📊</span><span class="lbl">출하 분석</span></a>
       <div class="grp" style="margin-top:14px">보상판매 (트레이드인)</div>
       <a data-v="tiwork"><span class="ico">📥</span><span class="lbl">처리 현황</span><span id="ti-badge" style="margin-left:auto;background:#ef4444;color:#fff;border-radius:10px;font-size:10px;padding:1px 7px;font-weight:700;display:none"></span></a>
@@ -215,6 +216,7 @@ async function enter(user){
   if(DEMO){document.getElementById('demo-banner').classList.remove('hidden');OWN=lsGet();if(!OWN.length&&(location.hostname==='localhost'||location.hostname==='127.0.0.1'))seedDemo();}
   else{const{data}=await _sb.from('demo_schedules').select('*').order('date');OWN=(data||[]).map(mapOwn);}
   await loadEquip();
+  await loadFleet();
   await loadTradein();
   afterLoad();
 }
@@ -269,7 +271,7 @@ document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',()=>se
 let _drill={},_dseq=0;
 function reg(arr){const k='d'+(_dseq++);_drill[k]=arr||[];return k;}
 function openRecsK(k,title,note){openRecs(title,_drill[k]||[],note);}
-function render(){_drill={};_dseq=0;const v=document.getElementById('view');v.innerHTML=curView==='cal'?viewCal():curView==='list'?viewList():curView==='elog'?viewElog():curView==='estat'?viewEstat():curView==='eana'?viewEana():curView==='tiwork'?viewTiWork():curView==='tilist'?viewTiList():curView==='tirefurb'?viewTiRefurb():viewStats();tiBadge();}
+function render(){_drill={};_dseq=0;const v=document.getElementById('view');v.innerHTML=curView==='cal'?viewCal():curView==='list'?viewList():curView==='elog'?viewElog():curView==='estat'?viewEstat():curView==='avail'?viewAvail():curView==='eana'?viewEana():curView==='tiwork'?viewTiWork():curView==='tilist'?viewTiList():curView==='tirefurb'?viewTiRefurb():viewStats();tiBadge();}
 function head(title,desc,actions){return `<div class="topbar"><div><h2>${title}</h2><div class="desc">${desc}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${actions||''}</div></div><div class="wrap">${notifBar()}`;}
 function filterBar(){const s=salesList();const bl=bsList();return `<select class="sel" onchange="fSales=this.value;render()"><option value="">담당 전체</option>${s.map(x=>`<option ${fSales===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`+
   (bl.length?`<select class="sel" onchange="fBs=this.value;render()"><option value="">운송(BS) 전체</option>${bl.map(x=>`<option ${fBs===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`:'')+
@@ -277,14 +279,24 @@ function filterBar(){const s=salesList();const bl=bsList();return `<select class
 
 // ── 캘린더 ──
 function setCalMode(m){calMode=m;render();}
-function calNav(d){if(calMode==='week'){refDate.setDate(refDate.getDate()+d*7);}else{refDate.setMonth(refDate.getMonth()+d);}refDate=new Date(refDate);render();}
+function calNav(d){if(calMode==='day'){refDate.setDate(refDate.getDate()+d);}else if(calMode==='week'){refDate.setDate(refDate.getDate()+d*7);}else{refDate.setMonth(refDate.getMonth()+d);}refDate=new Date(refDate);render();}
+function calDay(){
+  const ds=fmtDate(refDate);const wd=['일','월','화','수','목','금','토'][refDate.getDay()];
+  const dm=byDate(ds),em=showShip?eByDate(ds):[],tm=showShip?tiByDate(ds):[];
+  const total=dm.length+em.length+tm.length;
+  const sec=(t,arr,fn)=>arr.length?`<div class="card" style="margin-bottom:12px;padding:12px 14px"><div class="sect" style="margin:0 0 8px">${t} <span class="muted" style="font-weight:400;font-size:11px">${arr.length}건</span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px">${arr.map(fn).join('')}</div></div>`:'';
+  let h=`<div style="display:flex;align-items:baseline;gap:10px;margin:10px 2px 14px"><div style="font-size:20px;font-weight:800;color:var(--ink)">${refDate.getMonth()+1}월 ${refDate.getDate()}일 <span style="color:${refDate.getDay()===0?'#dc2626':refDate.getDay()===6?'#2563eb':'var(--muted)'};font-size:15px">(${wd})</span></div>${ds===today()?'<span style="color:#2563eb;font-weight:700;font-size:12px">● 오늘</span>':''}<div class="muted" style="margin-left:auto">총 ${total}건 · <b style="color:#2563eb;cursor:pointer" onclick="openModal({date:'${ds}'})">+ 데모 추가</b></div></div>`;
+  h+=sec('📅 데모 약속',dm,evCard)+sec('📦 장비 출하',em,eEvCard)+sec('♻️ 트레이드인 회수',tm,tiEvCard);
+  if(!total)h+=`<div class="card" style="text-align:center;color:var(--muted);padding:44px;cursor:pointer" onclick="openModal({date:'${ds}'})">이 날은 일정이 없습니다. <b style="color:#2563eb">+ 데모 추가</b></div>`;
+  return h;
+}
 function calToday(){refDate=new Date();render();}
 function viewCal(){
-  const seg=`<div class="seg"><button class="${calMode==='week'?'on':''}" onclick="setCalMode('week')">주간</button><button class="${calMode==='month'?'on':''}" onclick="setCalMode('month')">월간</button></div>`;
+  const seg=`<div class="seg"><button class="${calMode==='day'?'on':''}" onclick="setCalMode('day')">일간</button><button class="${calMode==='week'?'on':''}" onclick="setCalMode('week')">주간</button><button class="${calMode==='month'?'on':''}" onclick="setCalMode('month')">월간</button></div>`;
   const nav=`<button class="btn btn-sm" onclick="calNav(-1)"><i class="bi bi-chevron-left"></i></button><button class="btn btn-sm" onclick="calToday()">오늘</button><button class="btn btn-sm" onclick="calNav(1)"><i class="bi bi-chevron-right"></i></button>`;
   const actions=seg+filterBar()+`<button class="btn btn-sm" onclick="toggleShip()" title="캘린더에 장비 출하·회수 표시" style="${showShip?'background:#2563eb;color:#fff;border-color:#2563eb':''}">📦 출하·회수</button>`+nav+`<button class="btn btn-primary" onclick="openModal()">+ 데모 추가</button>`;
   const legend=`<div class="legend">${Object.keys(STATUS).map(k=>`<span><span class="dot" style="background:${STATUS[k].c}"></span> ${STATUS[k].n}</span>`).join('')}<span style="color:var(--muted)">📦 출하(데모·납품·철수)</span><span style="color:#6d28d9">♻️ 회수(트레이드인)</span><span style="margin-left:auto;color:var(--muted)">여기서 만든 데모 → 영업사이트 자동반영</span></div>`;
-  return head('📅 통합 캘린더','데모 약속 · 장비 출하 · 트레이드인 회수 — 한 화면',actions)+legend+(calMode==='week'?calWeek():calMonth())+'</div>';
+  return head('📅 통합 캘린더','데모 약속 · 장비 출하 · 트레이드인 회수 — 한 화면',actions)+legend+(calMode==='day'?calDay():calMode==='week'?calWeek():calMonth())+'</div>';
 }
 function evCard(e){const pk=packed(e);return `<div class="ev" style="border-left-color:${(STATUS[e.status]||STATUS.planned).c}" onclick="event.stopPropagation();openView('${e.id}')">
   <div class="t1"><span class="tm">${e.time||'-'}</span>${isNew(e)?'<span class="newbadge">NEW</span> ':''}${e.source==='wontech'?'<span class="syncbadge">연동</span>':statusChip(e.status)}</div>
@@ -543,10 +555,9 @@ function eOverdueBanner(){const o=eOverdueList();if(!o.length||ENOTBL)return'';c
 let showShip=true;
 function toggleShip(){showShip=!showShip;render();}
 function eByDate(ds){return EMOVES.filter(e=>e.start_date===ds).sort((a,b)=>(a.kind||'').localeCompare(b.kind||''));}
-function eEvCard(e){const c=eKcol(e.kind);return `<div class="ev" style="border-left-color:${c};background:${c}0f" onclick="event.stopPropagation();openEq('${e.id}')">
-  <div class="t1"><span style="font-size:11px">📦</span>${eKindChip(e.kind)}</div>
-  <div class="cust">${esc(e.equipment)||'-'}${e.serial?' <span style="font-size:10px;color:var(--muted)">#'+esc(e.serial)+'</span>':''}</div>
-  <div class="meta">${esc(e.hospital)}${e.handler?' · '+esc(e.handler):''}</div></div>`;}
+function eEvCard(e){const c=eKcol(e.kind);return `<div class="ev" style="border-left-color:${c};background:${c}0d;padding:5px 8px" onclick="event.stopPropagation();openEq('${e.id}')">
+  <div class="cust" style="margin:0"><b>${esc(e.equipment)||'-'}</b>${e.serial?' <span style="font-size:10px;color:var(--muted);font-weight:400">#'+esc(e.serial)+'</span>':''} <span style="font-size:9.5px;font-weight:800;color:${c}">${esc(e.kind)}</span></div>
+  <div class="meta" style="margin:0">${esc(e.hospital)}${e.handler?' · '+esc(e.handler):''}</div></div>`;}
 
 // ② 시리얼 타임라인
 function openTimeline(serial){serial=String(serial||'').trim();if(!serial)return;
@@ -618,10 +629,9 @@ function tiPending(){const Q=tiQueues();return Q.comp.rows.length+Q.pay.rows.len
 function tiBadge(){const b=document.getElementById('ti-badge');if(!b)return;const p=TINOTBL?0:tiPending();if(p>0){b.textContent=p;b.style.display='inline-block';}else b.style.display='none';}
 function tiByClinic(clinic){const c=hnorm(clinic);if(!c||TINOTBL)return[];return (TI.items||[]).filter(x=>{const h=hnorm(x.clinic);return h&&(h.indexOf(c)>=0||c.indexOf(h)>=0);}).slice(0,6);}
 function tiByDate(ds){return (TI.items||[]).filter(x=>x.returnDate===ds);}
-function tiEvCard(e){return `<div class="ev" style="border-left-color:#8b5cf6;background:#f5f3ff" onclick="event.stopPropagation();openItemTI('${(e.serial||'').replace(/'/g,'')}')">
-  <div class="t1"><span style="font-size:11px">♻️</span><span class="chip" style="background:#ede9fe;color:#6d28d9">회수</span></div>
-  <div class="cust">${esc(e.recovDev)||'-'}${e.serial?' <span style="font-size:10px;color:var(--muted)">#'+esc(e.serial)+'</span>':''}</div>
-  <div class="meta">${esc(e.clinic)}${e.rep?' · '+esc(e.rep):''}</div></div>`;}
+function tiEvCard(e){return `<div class="ev" style="border-left-color:#8b5cf6;background:#f5f3ff;padding:5px 8px" onclick="event.stopPropagation();openItemTI('${(e.serial||'').replace(/'/g,'')}')">
+  <div class="cust" style="margin:0"><b>${esc(e.recovDev)||'-'}</b>${e.serial?' <span style="font-size:10px;color:var(--muted);font-weight:400">#'+esc(e.serial)+'</span>':''} <span style="font-size:9.5px;font-weight:800;color:#6d28d9">회수</span></div>
+  <div class="meta" style="margin:0">${esc(e.clinic)}${e.rep?' · '+esc(e.rep):''}</div></div>`;}
 
 function viewTiWork(){
   if(TINOTBL)return head('📥 보상 처리 현황','트레이드인 장비 처리','')+`<div class="notif warn"><i class="bi bi-exclamation-triangle-fill"></i> 보상판매 데이터가 없습니다 (cons_cache <b>tradein</b>). 엑셀 이관 후 활성화됩니다.</div></div>`;
@@ -751,6 +761,38 @@ function viewTiRefurb(){
   return head('♻️ 리퍼 재고 · 출고','리퍼 처리된 회수장비 재고/출고 · 숫자 클릭 → 내역','')
     +`<div class="grid kpis">${kpis.map(k=>{const kk=reg(k.items);return `<div class="kpi clk" onclick="tiDrillK('${kk}','${esc(k.l)}')"><div class="v" style="color:${k.c||'var(--ink)'}">${k.v}대</div><div class="l">${esc(k.l)} <i class="bi bi-list-ul" style="font-size:10px;opacity:.45"></i></div></div>`;}).join('')}</div>`
     +`<div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>상태</th><th>회수장비</th><th>시리얼</th><th>제작년도</th><th>반납일</th><th>원거래처</th><th>출고처</th><th>출고일</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+
+// ═══════════ 장비 가용 (회의실 예약식) ═══════════
+let FLEET={};
+async function loadFleet(){if(DEMO){FLEET={};return;}try{const r=await _sb.from('cons_cache').select('data').eq('key','equip_fleet').maybeSingle();FLEET=(r&&r.data&&r.data.data)||{};}catch(e){FLEET={};}}
+async function setFleet(model,v){const n=parseInt(v,10);if(isNaN(n)||n<0){toast('숫자를 입력하세요');return;}FLEET[model]=n;try{await _sb.from('cons_cache').upsert({key:'equip_fleet',data:FLEET},{onConflict:'key'});}catch(e){toast('저장 실패(테이블/권한 확인)');}render();}
+function demoLoans(model){return EMOVES.filter(e=>e.equipment===model&&(e.kind==='데모'||e.kind==='대체')&&e.start_date);}
+function occupiedOn(model,ds){return demoLoans(model).filter(e=>e.start_date<=ds&&(!e.end_date||e.end_date>=ds)).length;}
+function availModels(){const m={};EMOVES.forEach(e=>{if((e.kind==='데모'||e.kind==='대체')&&e.equipment&&e.start_date)m[e.equipment]=(m[e.equipment]||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);}
+function fleetDefault(model,days){let mx=1;(days||[]).forEach(ds=>{const o=occupiedOn(model,ds);if(o>mx)mx=o;});return mx;}
+function fleetOf(model,days){return FLEET[model]!=null?FLEET[model]:fleetDefault(model,days);}
+function viewAvail(){
+  if(ENOTBL)return head('🗓️ 장비 가용','장비별 일자 데모 가용','')+`<div class="notif warn"><i class="bi bi-exclamation-triangle-fill"></i> 장비 데이터가 없습니다.</div></div>`;
+  const N=21;const base=new Date(today()+'T00:00');const days=[];for(let i=0;i<N;i++){const d=new Date(base);d.setDate(d.getDate()+i);days.push(fmtDate(d));}
+  const wd=['일','월','화','수','목','금','토'];
+  const models=availModels().slice(0,20);
+  const th=`<th style="position:sticky;left:0;background:#eef2f6;z-index:3;min-width:120px;text-align:left">장비</th><th style="position:sticky;left:120px;background:#eef2f6;z-index:3;min-width:52px">보유</th>`+days.map(ds=>{const d=new Date(ds+'T00:00');const isT=ds===today();return `<th style="min-width:36px;text-align:center;${isT?'background:#dbeafe;color:#1d4ed8':''}">${d.getMonth()+1}/${d.getDate()}<div style="font-size:9px;color:${d.getDay()===0?'#dc2626':d.getDay()===6?'#2563eb':'#94a3b8'};font-weight:400">${wd[d.getDay()]}</div></th>`;}).join('');
+  const rows=models.map(m=>{const fleet=fleetOf(m,days);const md=m.replace(/'/g,'');
+    const cells=days.map(ds=>{const occ=occupiedOn(m,ds);const av=fleet-occ;const bg=av>0?'#dcfce7':av===0?'#fef3c7':'#fee2e2';const fg=av>0?'#15803d':av===0?'#b45309':'#dc2626';return `<td onclick="availCell('${md}','${ds}')" style="text-align:center;cursor:pointer;background:${bg};color:${fg};font-weight:700;font-variant-numeric:tabular-nums" title="가용 ${av}대 (데모중 ${occ})">${av}</td>`;}).join('');
+    return `<tr><td style="position:sticky;left:0;background:#fff;font-weight:700;color:var(--ink);white-space:nowrap">${esc(m)}</td><td style="position:sticky;left:120px;background:#fff;text-align:center"><input value="${fleet}" onchange="setFleet('${md}',this.value)" style="width:42px;text-align:center;border:1px solid var(--line);border-radius:6px;padding:3px" title="보유 대수(수정 가능)"></td>${cells}</tr>`;
+  }).join('')||'<tr><td colspan="23" style="text-align:center;color:var(--muted);padding:30px">데모 장비가 없습니다</td></tr>';
+  return head('🗓️ 장비 가용','장비별 일자 데모 가용 대수 · 셀 클릭 → 그날 데모 잡기 · 초록=가능/노랑=0/빨강=초과','')
+    +`<div class="muted" style="font-size:12px;margin-bottom:10px">숫자 = 그날 <b>데모 가능 대수</b> (보유 − 데모중). 보유는 관측 최대 동시데모로 기본세팅 → 실제 보유(재고 포함)로 <b>보유칸 직접 수정</b>. 요청 오면 이 표에서 가능 날짜 한눈에 확인.</div>`
+    +`<div class="card" style="padding:0;overflow:auto"><table style="border-collapse:separate;border-spacing:0"><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+function availCell(model,ds){
+  const occ=demoLoans(model).filter(e=>e.start_date<=ds&&(!e.end_date||e.end_date>=ds));
+  const fleet=fleetOf(model,[ds]);const av=fleet-occ.length;
+  const rows=occ.map(e=>`<tr class="clk" onclick="openEq('${e.id}')"><td>${esc(e.hospital)}</td><td>${esc(e.serial)||'-'}</td><td style="white-space:nowrap">${e.start_date||'-'} ~ ${e.end_date||'미정'}</td><td>${esc(e.handler)}</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">이 날 데모중 장비 없음</td></tr>';
+  document.getElementById('modal').classList.add('recs');
+  document.getElementById('modal').innerHTML=`<div class="mh"><h3>${esc(model)} · ${ds} <span class="muted" style="font-size:12px;font-weight:500">가용 ${av}/${fleet}대</span></h3><button class="x" onclick="closeModal()">×</button></div><div class="mb"><div style="font-size:15px;margin-bottom:12px">이 날 <b style="color:${av>0?'#16a34a':'#dc2626'}">${av>0?av+'대 데모 가능':'가용 없음'}</b> <span class="muted">(보유 ${fleet} − 데모중 ${occ.length})</span></div><div style="overflow:auto"><table><thead><tr><th>병원</th><th>시리얼</th><th>데모 기간</th><th>담당</th></tr></thead><tbody>${rows}</tbody></table></div></div><div class="mf"><div class="muted" style="font-size:11.5px">행 클릭 → 해당 데모</div><button class="btn btn-primary" onclick="closeModal();openEq(null,{kind:'데모',equipment:'${model.replace(/'/g,'')}',start_date:'${ds}'})">＋ 이 날 데모 잡기</button></div>`;
+  document.getElementById('mbg').style.display='flex';
 }
 
 boot();
