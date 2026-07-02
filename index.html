@@ -115,16 +115,12 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
       <a data-v="cal"><span class="ico">📅</span><span class="lbl">통합 캘린더</span></a>
       <a data-v="clinic"><span class="ico">🏥</span><span class="lbl">거래처 통합조회</span></a>
       <div class="grp" style="margin-top:14px">데모</div>
-      <a data-v="list"><span class="ico">📋</span><span class="lbl">목록 · 결과관리</span></a>
+      <a data-v="list"><span class="ico">📋</span><span class="lbl">데모 일정·결과</span></a>
+      <a data-v="avail"><span class="ico">🗓️</span><span class="lbl">가용 예약</span></a>
       <a data-v="stats"><span class="ico">📊</span><span class="lbl">데모 통계</span></a>
-      <div class="grp" style="margin-top:14px">장비</div>
-      <a data-v="avail"><span class="ico">🗓️</span><span class="lbl">장비 가용</span></a>
-      <a data-v="estat"><span class="ico">🖥️</span><span class="lbl">장비 현황</span></a>
-      <a data-v="elog"><span class="ico">📦</span><span class="lbl">출하 이력</span></a>
-      <a data-v="eana"><span class="ico">📊</span><span class="lbl">출하 분석</span></a>
-      <div class="grp" style="margin-top:14px">재고 · 감사</div>
-      <a data-v="inv"><span class="ico">📦</span><span class="lbl">재고 현황·자산대장</span></a>
-      <a data-v="stock"><span class="ico">✅</span><span class="lbl">재고 실사</span></a>
+      <div class="grp" style="margin-top:14px">장비 · 재고</div>
+      <a data-v="estat"><span class="ico">🖥️</span><span class="lbl">장비·재고</span><span style="margin-left:auto;font-size:9px;color:#94a3b8">현황·자산·실사</span></a>
+      <a data-v="elog"><span class="ico">📦</span><span class="lbl">출하 이력</span><span style="margin-left:auto;font-size:9px;color:#94a3b8">이력·분석</span></a>
       <div class="grp" style="margin-top:14px">보상판매</div>
       <a data-v="tiwork"><span class="ico">📥</span><span class="lbl">처리 현황</span><span id="ti-badge" style="margin-left:auto;background:#ef4444;color:#fff;border-radius:10px;font-size:10px;padding:1px 7px;font-weight:700;display:none"></span></a>
       <a data-v="tilist"><span class="ico">📋</span><span class="lbl">회수 내역</span></a>
@@ -227,7 +223,7 @@ async function enter(user){
   afterLoad();
 }
 function afterLoad(){if(DEMO&&!SYNC.length)seedSync();if(!lastSeen())markSeenSilent();document.getElementById('boot-ov').style.display='none';document.getElementById('app').style.display='block';
-  const _h=(location.hash||'').replace('#','');if(['home','clinic','cal','list','stats','elog','estat','avail','eana','inv','stock','tiwork','tilist','tirefurb'].indexOf(_h)>=0){curView=_h;document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.v===_h));}
+  const _h=(location.hash||'').replace('#','');if(['home','clinic','cal','list','stats','elog','estat','avail','eana','inv','stock','tiwork','tilist','tirefurb'].indexOf(_h)>=0){curView=_h;setNavActive(_h);}
   render();}
 function mapOwn(r){return{id:r.id,date:r.date,time:r.time||'',cust:r.cust||'',sales:r.sales||'',bs:r.bs||'',product:r.product||'',content:r.content||'',demo_type:r.demo_type||'신규',status:r.status||'planned',outcome:r.outcome||'',follow_up:r.follow_up||'',attendees:r.attendees||'',parts:Array.isArray(r.parts)?r.parts:[],created_at:r.created_at||'',source:'direct'};}
 
@@ -272,7 +268,12 @@ function salesList(){return[...new Set(all().map(x=>x.sales).filter(Boolean))].s
 function statusChip(s){const S=STATUS[s]||STATUS.planned;return `<span class="chip" style="background:${S.c}22;color:${S.c}"><span class="dot" style="background:${S.c}"></span>${S.n}</span>`;}
 
 // ── 라우팅 ──
-function setView(v){curView=v;document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.v===v));render();window.scrollTo(0,0);}
+const NAVMAP={inv:'estat',stock:'estat',eana:'elog'};  // 세부탭 → 대표 nav키(하나의 메뉴로 묶음)
+function navKey(v){return NAVMAP[v]||v;}
+function setNavActive(v){const k=navKey(v);document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.v===k));}
+function setView(v){curView=v;setNavActive(v);render();window.scrollTo(0,0);}
+function equipTabs(cur){const T=[['estat','🖥️ 운영 현황'],['inv','📦 재고·자산대장'],['stock','✅ 재고 실사']];return `<div class="seg" style="margin-bottom:14px">${T.map(([v,l])=>`<button class="${cur===v?'on':''}" onclick="setView('${v}')">${l}</button>`).join('')}</div>`;}
+function shipTabs(cur){const T=[['elog','📜 출하 이력'],['eana','📊 출하 분석']];return `<div class="seg" style="margin-bottom:14px">${T.map(([v,l])=>`<button class="${cur===v?'on':''}" onclick="setView('${v}')">${l}</button>`).join('')}</div>`;}
 document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',()=>setView(a.dataset.v)));
 let _drill={},_dseq=0;
 function reg(arr){const k='d'+(_dseq++);_drill[k]=arr||[];return k;}
@@ -496,7 +497,7 @@ function viewElog(){
     <td>${esc(e.hospital)||'-'}</td>
     <td style="white-space:nowrap">${esc(e.handler)||'-'}${eHtTag(e.handler_type)}</td>
     <td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.note)}</td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">데이터 없음</td></tr>';
-  return head('📦 출하 이력','데모·납품·철수·교체 장비 이동 대장 · 행 클릭 → 수정',eFilterBar()+(ENOTBL?'':`<button class="btn btn-primary" onclick="openEq()">+ 출하 추가</button>`))+eNoTblBanner()+eOverdueBanner()
+  return head('📦 출하 이력','데모·납품·철수·교체 장비 이동 대장 · 행 클릭 → 수정',eFilterBar()+(ENOTBL?'':`<button class="btn btn-primary" onclick="openEq()">+ 출하 추가</button>`))+shipTabs('elog')+eNoTblBanner()+eOverdueBanner()
     +`<div class="muted" style="font-size:12px;margin-bottom:8px">${A.length.toLocaleString()}건${A.length>400?' 중 최근 400건 표시':''}</div>`
     +`<div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>일자</th><th>종류</th><th>장비 / 시리얼</th><th>병원</th><th>담당</th><th>비고</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
@@ -516,7 +517,7 @@ function viewEstat(){
     <td style="font-weight:700;color:${(e.dd||0)>60?'var(--bad)':(e.dd||0)>30?'#d97706':'var(--ink)'}">${e.dd!=null?e.dd+'일':'-'}</td>
     <td style="white-space:nowrap">${esc(e.handler)||'-'}</td>
     <td style="white-space:nowrap"><button class="btn btn-sm" onclick="event.stopPropagation();retEq('${e.id}')" title="오늘자로 철수 처리">↩ 철수</button> <button class="btn btn-sm" onclick="event.stopPropagation();convEq('${e.id}')" title="납품 전환(같은 장비·병원으로 납품 기록)">💰 납품</button></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">나가있는 데모 장비가 없습니다</td></tr>';
-  return head('🖥️ 장비 현황','지금 나가있는 데모 장비 · 숫자·항목 클릭 → 내역','')+eNoTblBanner()+eOverdueBanner()
+  return head('🖥️ 장비·재고','지금 나가있는 데모 장비 운영 · 숫자·항목 클릭 → 내역','')+equipTabs('estat')+eNoTblBanner()+eOverdueBanner()
     +`<div class="grid kpis">${kpis.map(k=>{const kk=reg(k.items);return `<div class="kpi clk" onclick="openRecsK('${kk}','${esc(k.l)}')"><div class="v" style="color:${k.c||'var(--ink)'}">${k.v}</div><div class="l">${esc(k.l)} <i class="bi bi-list-ul" style="font-size:10px;opacity:.45"></i></div></div>`;}).join('')}</div>`
     +`<div class="card" style="margin-bottom:14px"><div class="sect"><span>📦 장비별 현재 데모중 (상위) <span class="muted" style="font-weight:400;font-size:11px">· 클릭 → 내역</span></span></div>${eArr.map(([n,arr])=>{const kk=reg(arr);return `<div class="rowbar" onclick="openRecsK('${kk}','현재 데모중 · ${esc(n)}')" style="display:flex;align-items:center;gap:10px;padding:6px 8px"><div style="width:130px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${arr.length/maxE*100}%;background:var(--brand)"></i></div><b style="width:40px;text-align:right">${arr.length}대</b></div>`;}).join('')||'<div style="color:var(--muted);padding:10px">없음</div>'}</div>`
     +`<div class="card" style="padding:0;overflow:auto"><div class="sect" style="padding:14px 16px 4px"><span>현재 나가있는 데모 장비 <span class="muted" style="font-weight:400;font-size:11px">· 경과일 순 · 빨강=60일↑ · ↩철수 💰납품전환</span></span></div><table><thead><tr><th>장비 / 시리얼</th><th>병원</th><th>시작일</th><th>경과일</th><th>담당</th><th>액션</th></tr></thead><tbody>${outRows}</tbody></table></div></div>`;
@@ -594,7 +595,7 @@ function viewEana(){
   const byK={};A.forEach(e=>{if(e.kind)(byK[e.kind]=byK[e.kind]||[]).push(e);});
   const kArr=Object.entries(byK).sort((a,b)=>b[1].length-a[1].length);const maxK=Math.max(1,...kArr.map(x=>x[1].length));
   const kpis=[{v:A.length.toLocaleString(),l:'총 출하 이력',items:A},{v:conv+' / '+demoN,l:'데모→납품 전환건',c:'var(--ok)',items:convRecs},{v:convRate+'%',l:'데모 전환율',c:'var(--brand)',items:convRecs},{v:Object.keys(byHo).length.toLocaleString(),l:'거래 병원수',items:A}];
-  return head('📊 출하 분석','데모→납품 전환 · 운송사 · 병원별 · 숫자·항목 클릭 → 내역','')+eNoTblBanner()+eOverdueBanner()
+  return head('📊 출하 분석','데모→납품 전환 · 운송사 · 병원별 · 숫자·항목 클릭 → 내역','')+shipTabs('eana')+eNoTblBanner()+eOverdueBanner()
     +`<div class="grid kpis">${kpis.map(k=>{const kk=reg(k.items);return `<div class="kpi clk" onclick="openRecsK('${kk}','${esc(k.l)}')"><div class="v" style="color:${k.c||'var(--ink)'}">${k.v}</div><div class="l">${esc(k.l)} <i class="bi bi-list-ul" style="font-size:10px;opacity:.45"></i></div></div>`;}).join('')}</div>`
     +`<div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:14px">
        <div class="card"><div class="sect"><span>🚚 운송사별 출하 <span class="muted" style="font-weight:400;font-size:11px">· 클릭 → 내역</span></span></div>${hArr.map(([n,arr])=>{const kk=reg(arr);return `<div class="rowbar" onclick="openRecsK('${kk}','운송사 · ${esc(n)}')" style="display:flex;align-items:center;gap:10px;padding:6px 8px"><div style="width:120px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${arr.length/maxH*100}%;background:#0f766e"></i></div><b style="width:44px;text-align:right">${arr.length}</b></div>`;}).join('')||'<div class="muted" style="padding:10px">없음</div>'}</div>
@@ -913,7 +914,7 @@ function viewInv(){
   const act=`<label style="font-size:12px;color:var(--muted)">기준일 <input type="date" class="sel" value="${asOf}" onchange="setInvAsOf(this.value)" style="width:150px"></label><button class="btn btn-sm" onclick="openModelCost()">💲 단가 설정</button><button class="btn btn-sm" onclick="dlInvCsv()">⬇ 감사용 CSV</button><button class="btn btn-primary btn-sm" onclick="startCount()">✅ 재고 실사 시작</button>`;
   const qty=INV.qty||[];const qtyVal=qty.reduce((s,q)=>s+((Number(q.qty)||0)*(Number(q.unitCost)||0)),0);
   const qrows=qty.map(q=>`<tr class="clk" onclick="openQty('${q.id}')"><td><b>${esc(q.model)}</b></td><td>${esc(q.category)||'-'}</td><td>${esc(q.location)||'-'}</td><td style="text-align:right;font-weight:700">${Number(q.qty)||0}</td><td style="text-align:right">${won(q.unitCost)}</td><td style="text-align:right">${won((Number(q.qty)||0)*(Number(q.unitCost)||0))}</td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:16px">등록된 수량 재고 없음 — 부속·소모품 등 비시리얼 품목을 추가하세요</td></tr>';
-  return head('📦 재고 현황 · 자산대장',`기준일 ${asOf} 시점 · 이동이력 자동도출 + 수동보정 · 감사 제출용`,act)+eNoTblBanner()
+  return head('📦 재고 현황 · 자산대장',`기준일 ${asOf} 시점 · 이동이력 자동도출 + 수동보정 · 감사 제출용`,act)+equipTabs('inv')+eNoTblBanner()
     +`<div class="grid kpis">${kpis.map(k=>`<div class="kpi clk" onclick="fInvSt='${k.k}';render()"><div class="v" style="color:${k.c}">${k.v}</div><div class="l">${esc(k.l)}</div></div>`).join('')}</div>`
     +`<div class="card" style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-bottom:14px"><div><div class="muted" style="font-size:11px">보유 자산 평가액 (취득가 기준)</div><div style="font-size:22px;font-weight:800;color:#0f172a">${won(valOf(onb)+qtyVal)}</div></div><div style="border-left:1px solid var(--line);padding-left:16px"><div class="muted" style="font-size:11px">시리얼 자산 ${onb.length}대 · 수량재고 평가 ${won(qtyVal)}</div>${noCost?`<div style="color:#b45309;font-size:12px;font-weight:600">⚠ 단가 미입력 ${noCost}건 — 평가액 과소. '단가 설정'에서 입력</div>`:'<div style="color:var(--ok);font-size:12px">✓ 단가 입력 완료</div>'}</div></div>`
     +`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">${filt}</div>`
@@ -996,6 +997,7 @@ function viewStock(){
   const hist=counts.map(c=>{const S=cntStat(c.lines,c.extra);return `<tr class="clk" onclick="openCount('${c.id}')"><td><b>${c.date}</b><div class="muted" style="font-size:11px">기준 ${c.asOf||c.date}</div></td><td>${esc((c.by||'').split('@')[0])}</td><td style="text-align:right">${S.total}</td><td style="text-align:right;color:#16a34a">${S.ok}</td><td style="text-align:right;color:#dc2626">${S.miss}</td><td style="text-align:right;color:#b45309">${S.diff}</td><td style="text-align:right;color:#2563eb">${S.extra}</td><td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.note||'')}</td></tr>`;}).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:26px">아직 실사 기록이 없습니다. "새 실사 시작"으로 첫 실사를 진행하세요.</td></tr>';
   const last=counts[0];const LS2=last?cntStat(last.lines,last.extra):null;
   return head('✅ 재고 실사 · 감사대응',`정기·연말 실사 기록 · 장부(시스템) vs 실물 대조 이력`,`<button class="btn btn-primary" onclick="startCount()">＋ 새 실사 시작 (기준일 ${invAsOfVal()})</button>`)
+    +equipTabs('stock')
     +(last?`<div class="card" style="margin-bottom:14px"><div class="sect"><span>최근 실사 — ${last.date}</span><span style="margin-left:auto;font-size:12px;color:#2563eb;cursor:pointer" onclick="openCount('${last.id}')">상세 →</span></div><div style="font-size:13px">확인 <b style="color:#16a34a">${LS2.ok}</b> · 미발견 <b style="color:#dc2626">${LS2.miss}</b> · 불일치 <b style="color:#b45309">${LS2.diff}</b> · 신규 <b style="color:#2563eb">${LS2.extra}</b></div></div>`:'')
     +`<div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>실사일</th><th>담당</th><th style="text-align:right">대상</th><th style="text-align:right">확인</th><th style="text-align:right">미발견</th><th style="text-align:right">불일치</th><th style="text-align:right">신규</th><th>총평</th></tr></thead><tbody>${hist}</tbody></table></div></div>`;
 }
