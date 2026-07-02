@@ -198,6 +198,11 @@ function isNew(e){return e.source==='direct'&&e.created_at&&e.created_at>lastSee
 function nowISO(){return new Date().toISOString();}
 
 // ── 부트/로그인 ──
+async function equipAllowed(user){const MASTER='pmw0406@gmail.com';if((user.email||'')===MASTER)return true;
+  try{const{data:p}=await _sb.from('crm_profiles').select('access,role').eq('id',user.id).maybeSingle();
+    if(!p)return false;if(p.role==='admin')return true;
+    return (p.access||'').split(',').map(s=>s.trim()).indexOf('equip')>=0;
+  }catch(e){return false;}}
 async function boot(){const{data}=await _sb.auth.getSession();if(data&&data.session)await enter(data.session.user);else if(location.hostname==='localhost'||location.hostname==='127.0.0.1'){DEMO=true;ME='demo@local';document.getElementById('uem').textContent=ME;document.getElementById('unm').textContent='demo';document.getElementById('uav').textContent='D';document.getElementById('demo-banner').classList.remove('hidden');OWN=lsGet();if(!OWN.length)seedDemo();afterLoad();}else location.href=CENTRAL;}
 async function doLogin(){const e=(document.getElementById('li').value||'').trim(),p=(document.getElementById('lp').value||'').trim();const er=document.getElementById('le');er.style.display='none';const{data,error}=await _sb.auth.signInWithPassword({email:e,password:p});if(error){er.style.display='block';return;}await enter(data.user);}
 async function doLogout(){await _sb.auth.signOut();Object.keys(localStorage).filter(k=>k.startsWith('sb-')).forEach(k=>localStorage.removeItem(k));location.href=CENTRAL;}
@@ -206,6 +211,8 @@ async function goSite(url){try{const{data:{session:s}}=await _sb.auth.getSession
 document.addEventListener('click',e=>{const w=document.querySelector('.switch-wrap');if(w&&!w.contains(e.target))document.getElementById('swdd').classList.remove('open');});
 async function enter(user){
   ME=user.email||'';document.getElementById('uem').textContent=ME;document.getElementById('unm').textContent=(ME.split('@')[0]||'사용자');document.getElementById('uav').textContent=(ME[0]||'P').toUpperCase();
+  // 접근 게이트: 장비 통합관리 = access 'equip' 포함 OR role admin OR master 만 진입(그 외 중앙으로)
+  if(!(await equipAllowed(user))){location.href=CENTRAL;return;}
   // 단방향 연동: 여기서 만든 데모만 영업사이트(wontech 일정)에 반영됨(wontech이 demo_schedules를 읽음).
   // 영업사이트에서 올린 데모는 여기 반영 안 함 → logs 미조회(SYNC 비움).
   SYNC=[];
@@ -221,8 +228,9 @@ async function enter(user){
   afterLoad();
 }
 function afterLoad(){if(DEMO&&!SYNC.length)seedSync();if(!lastSeen())markSeenSilent();document.getElementById('boot-ov').style.display='none';document.getElementById('app').style.display='block';
-  const _h=(location.hash||'').replace('#','');if(['home','clinic','cal','list','stats','elog','estat','avail','eana','inv','stock','tiwork','tilist','tirefurb'].indexOf(_h)>=0){curView=_h;setNavActive(_h);}
-  render();}
+  const raw=(location.hash||'').replace(/^#/,'');const v=VIEWS.indexOf(raw)>=0?raw:'home';
+  if(raw!==v){try{history.replaceState(null,'','#'+v);}catch(e){}}  // SSO 토큰 등 뷰가 아닌 해시는 URL에서 정리(보안)
+  applyView(v);}
 function mapOwn(r){return{id:r.id,date:r.date,time:r.time||'',cust:r.cust||'',sales:r.sales||'',bs:r.bs||'',product:r.product||'',content:r.content||'',demo_type:r.demo_type||'신규',status:r.status||'planned',outcome:r.outcome||'',follow_up:r.follow_up||'',attendees:r.attendees||'',parts:Array.isArray(r.parts)?r.parts:[],created_at:r.created_at||'',source:'direct'};}
 
 // ── localStorage 데모 ──
@@ -252,7 +260,7 @@ function today(){return new Date().toISOString().slice(0,10);}
 function all(){let a=SYNC.concat(OWN);if(fSales)a=a.filter(x=>x.sales===fSales);if(fStatus)a=a.filter(x=>x.status===fStatus);if(fBs)a=a.filter(x=>x.bs===fBs);return a;}
 function bsList(){return[...new Set(SYNC.concat(OWN).map(x=>x.bs).filter(Boolean))].sort();}
 function notifBar(){
-  if(curView==='elog'||curView==='estat'||curView==='eana')return'';
+  if(['elog','estat','eana','inv','stock','avail'].indexOf(curView)>=0)return'';  // 장비·재고 계열 페이지엔 데모 알림 숨김
   const nwArr=OWN.filter(isNew);const overArr=all().filter(x=>x.status==='planned'&&x.date<today());
   let h='';
   if(nwArr.length){const kk=reg(nwArr);h+=`<div class="notif new clk" onclick="openRecsK('${kk}','새로 추가된 데모')"><i class="bi bi-bell-fill"></i> 새로 추가된 데모 <b>${nwArr.length}건</b> <span class="muted">— 클릭 → 내역 · <span class="newbadge">NEW</span></span><button onclick="event.stopPropagation();markSeen()">확인</button></div>`;}
@@ -267,9 +275,13 @@ function statusChip(s){const S=STATUS[s]||STATUS.planned;return `<span class="ch
 
 // ── 라우팅 ──
 const NAVMAP={inv:'estat',stock:'estat',eana:'elog',tilist:'tiwork',tirefurb:'tiwork'};  // 세부탭 → 대표 nav키(하나의 메뉴로 묶음)
+const VIEWS=['home','clinic','cal','list','stats','elog','estat','avail','eana','inv','stock','tiwork','tilist','tirefurb'];
 function navKey(v){return NAVMAP[v]||v;}
 function setNavActive(v){const k=navKey(v);document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.v===k));}
-function setView(v){curView=v;setNavActive(v);render();window.scrollTo(0,0);}
+function applyView(v){if(VIEWS.indexOf(v)<0)v='home';curView=v;setNavActive(v);const mbg=document.getElementById('mbg');if(mbg&&mbg.style.display==='flex')closeModal();render();window.scrollTo(0,0);}
+// 해시 기반 라우팅: 뒤로가기/새로고침에 현재 화면 유지
+function setView(v){if(VIEWS.indexOf(v)<0)v='home';const h='#'+v;if(location.hash===h)applyView(v);else location.hash=h;/* hashchange→applyView */}
+window.addEventListener('hashchange',function(){const h=(location.hash||'').replace(/^#/,'');if(VIEWS.indexOf(h)>=0)applyView(h);});
 function equipTabs(cur){const T=[['estat','🖥️ 운영 현황'],['inv','📦 재고·자산대장'],['stock','✅ 재고 실사']];return `<div class="seg" style="margin-bottom:14px">${T.map(([v,l])=>`<button class="${cur===v?'on':''}" onclick="setView('${v}')">${l}</button>`).join('')}</div>`;}
 function shipTabs(cur){const T=[['elog','📜 출하 이력'],['eana','📊 출하 분석']];return `<div class="seg" style="margin-bottom:14px">${T.map(([v,l])=>`<button class="${cur===v?'on':''}" onclick="setView('${v}')">${l}</button>`).join('')}</div>`;}
 function tiTabs(cur){const T=[['tiwork','📥 처리 현황'],['tilist','📋 회수 내역'],['tirefurb','♻️ 리퍼 재고']];return `<div class="seg" style="margin-bottom:14px">${T.map(([v,l])=>`<button class="${cur===v?'on':''}" onclick="setView('${v}')">${l}</button>`).join('')}</div>`;}
