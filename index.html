@@ -416,8 +416,16 @@ function mapEq(r){return{id:r.id,seq:r.seq,start_date:r.start_date||'',end_date:
 function clsHandler(v){v=(v||'').trim();if(!v)return'';const low=v.toLowerCase();for(const k of EVEND)if(low.indexOf(k.toLowerCase())>=0)return'운송';if(v==='CS'||v==='영업관리'||/물류|재고/.test(v))return'내부';return'영업';}
 async function loadEquip(){
   if(DEMO){ENOTBL=true;EMOVES=[];return;}
-  try{const{data,error}=await _sb.from('equipment_moves').select('*').order('start_date',{ascending:false}).limit(6000);
-    if(error){ENOTBL=true;EMOVES=[];return;}ENOTBL=false;EMOVES=(data||[]).map(mapEq);
+  try{
+    let acc=[],from=0;const size=1000;   // Supabase max-rows(1000) 페이지네이션
+    for(let p=0;p<12;p++){
+      const{data,error}=await _sb.from('equipment_moves').select('*').order('start_date',{ascending:false}).range(from,from+size-1);
+      if(error){if(from===0){ENOTBL=true;EMOVES=[];return;}break;}
+      acc=acc.concat(data||[]);
+      if(!data||data.length<size)break;
+      from+=size;
+    }
+    ENOTBL=false;EMOVES=acc.map(mapEq);
   }catch(e){ENOTBL=true;EMOVES=[];}
 }
 function eDays(a,b){if(!a)return null;const d1=new Date(a+'T00:00'),d2=b?new Date(b+'T00:00'):new Date();return Math.round((d2-d1)/86400000);}
