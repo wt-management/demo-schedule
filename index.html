@@ -119,6 +119,10 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
       <a data-v="elog"><span class="ico">📦</span><span class="lbl">출하 이력</span></a>
       <a data-v="estat"><span class="ico">🖥️</span><span class="lbl">장비 현황</span></a>
       <a data-v="eana"><span class="ico">📊</span><span class="lbl">출하 분석</span></a>
+      <div class="grp" style="margin-top:14px">보상판매 (트레이드인)</div>
+      <a data-v="tiwork"><span class="ico">📥</span><span class="lbl">처리 현황</span><span id="ti-badge" style="margin-left:auto;background:#ef4444;color:#fff;border-radius:10px;font-size:10px;padding:1px 7px;font-weight:700;display:none"></span></a>
+      <a data-v="tilist"><span class="ico">📋</span><span class="lbl">회수 내역</span></a>
+      <a data-v="tirefurb"><span class="ico">♻️</span><span class="lbl">리퍼 재고</span></a>
     </nav>
     <div class="acct"><div class="row"><div class="av" id="uav">P</div><div style="flex:1;min-width:0"><div class="nm" id="unm">-</div><div class="em" id="uem">-</div></div></div>
       <div class="btns"><button onclick="changePw()"><i class="bi bi-key"></i> 비밀번호</button><button onclick="doLogout()"><i class="bi bi-box-arrow-right"></i> 로그아웃</button></div></div>
@@ -202,14 +206,16 @@ async function goSite(url){try{const{data:{session:s}}=await _sb.auth.getSession
 document.addEventListener('click',e=>{const w=document.querySelector('.switch-wrap');if(w&&!w.contains(e.target))document.getElementById('swdd').classList.remove('open');});
 async function enter(user){
   ME=user.email||'';document.getElementById('uem').textContent=ME;document.getElementById('unm').textContent=(ME.split('@')[0]||'사용자');document.getElementById('uav').textContent=(ME[0]||'P').toUpperCase();
-  // 연동: 한국영업 logs 에서 kind=schedule & type=데모
-  try{const{data}=await _sb.from('logs').select('id,data');SYNC=(data||[]).map(r=>r.data).filter(x=>x&&!x.deleted&&x.kind==='schedule'&&x.type==='데모').map(x=>({id:'w_'+x.id,date:x.date,time:x.time||'',cust:x.custName||'',sales:x.sales||'',bs:'',product:x.product||'',content:x.content||'',status:x.done?'done':'planned',parts:[],created_at:'',source:'wontech'}));}catch(e){SYNC=[];}
+  // 단방향 연동: 여기서 만든 데모만 영업사이트(wontech 일정)에 반영됨(wontech이 demo_schedules를 읽음).
+  // 영업사이트에서 올린 데모는 여기 반영 안 함 → logs 미조회(SYNC 비움).
+  SYNC=[];
   // 자체 입력: demo_schedules 테이블 (없으면 데모모드)
   const probe=await _sb.from('demo_schedules').select('id').limit(1);
   DEMO=!!(probe&&probe.error);
   if(DEMO){document.getElementById('demo-banner').classList.remove('hidden');OWN=lsGet();if(!OWN.length&&(location.hostname==='localhost'||location.hostname==='127.0.0.1'))seedDemo();}
   else{const{data}=await _sb.from('demo_schedules').select('*').order('date');OWN=(data||[]).map(mapOwn);}
   await loadEquip();
+  await loadTradein();
   afterLoad();
 }
 function afterLoad(){if(DEMO&&!SYNC.length)seedSync();if(!lastSeen())markSeenSilent();document.getElementById('boot-ov').style.display='none';document.getElementById('app').style.display='block';render();}
@@ -261,7 +267,7 @@ document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',()=>se
 let _drill={},_dseq=0;
 function reg(arr){const k='d'+(_dseq++);_drill[k]=arr||[];return k;}
 function openRecsK(k,title,note){openRecs(title,_drill[k]||[],note);}
-function render(){_drill={};_dseq=0;const v=document.getElementById('view');v.innerHTML=curView==='cal'?viewCal():curView==='list'?viewList():curView==='elog'?viewElog():curView==='estat'?viewEstat():curView==='eana'?viewEana():viewStats();}
+function render(){_drill={};_dseq=0;const v=document.getElementById('view');v.innerHTML=curView==='cal'?viewCal():curView==='list'?viewList():curView==='elog'?viewElog():curView==='estat'?viewEstat():curView==='eana'?viewEana():curView==='tiwork'?viewTiWork():curView==='tilist'?viewTiList():curView==='tirefurb'?viewTiRefurb():viewStats();tiBadge();}
 function head(title,desc,actions){return `<div class="topbar"><div><h2>${title}</h2><div class="desc">${desc}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${actions||''}</div></div><div class="wrap">${notifBar()}`;}
 function filterBar(){const s=salesList();const bl=bsList();return `<select class="sel" onchange="fSales=this.value;render()"><option value="">담당 전체</option>${s.map(x=>`<option ${fSales===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`+
   (bl.length?`<select class="sel" onchange="fBs=this.value;render()"><option value="">운송(BS) 전체</option>${bl.map(x=>`<option ${fBs===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`:'')+
@@ -274,9 +280,9 @@ function calToday(){refDate=new Date();render();}
 function viewCal(){
   const seg=`<div class="seg"><button class="${calMode==='week'?'on':''}" onclick="setCalMode('week')">주간</button><button class="${calMode==='month'?'on':''}" onclick="setCalMode('month')">월간</button></div>`;
   const nav=`<button class="btn btn-sm" onclick="calNav(-1)"><i class="bi bi-chevron-left"></i></button><button class="btn btn-sm" onclick="calToday()">오늘</button><button class="btn btn-sm" onclick="calNav(1)"><i class="bi bi-chevron-right"></i></button>`;
-  const actions=seg+filterBar()+`<button class="btn btn-sm" onclick="toggleShip()" title="캘린더에 장비 출하 표시" style="${showShip?'background:#2563eb;color:#fff;border-color:#2563eb':''}">📦 출하</button>`+nav+`<button class="btn btn-primary" onclick="openModal()">+ 데모 추가</button>`;
-  const legend=`<div class="legend">${Object.keys(STATUS).map(k=>`<span><span class="dot" style="background:${STATUS[k].c}"></span> ${STATUS[k].n}</span>`).join('')}<span style="color:var(--muted)">📦 출하(데모·납품·철수)</span><span style="margin-left:auto"><span class="syncbadge">연동</span> 한국영업 · 나머지 직접입력</span></div>`;
-  return head('📅 데모 일정','누가 언제 어디서 데모하는지 · 한국영업 데모 자동 연동',actions)+legend+(calMode==='week'?calWeek():calMonth())+'</div>';
+  const actions=seg+filterBar()+`<button class="btn btn-sm" onclick="toggleShip()" title="캘린더에 장비 출하·회수 표시" style="${showShip?'background:#2563eb;color:#fff;border-color:#2563eb':''}">📦 출하·회수</button>`+nav+`<button class="btn btn-primary" onclick="openModal()">+ 데모 추가</button>`;
+  const legend=`<div class="legend">${Object.keys(STATUS).map(k=>`<span><span class="dot" style="background:${STATUS[k].c}"></span> ${STATUS[k].n}</span>`).join('')}<span style="color:var(--muted)">📦 출하(데모·납품·철수)</span><span style="color:#6d28d9">♻️ 회수(트레이드인)</span><span style="margin-left:auto;color:var(--muted)">여기서 만든 데모 → 영업사이트 자동반영</span></div>`;
+  return head('📅 통합 캘린더','데모 약속 · 장비 출하 · 트레이드인 회수 — 한 화면',actions)+legend+(calMode==='week'?calWeek():calMonth())+'</div>';
 }
 function evCard(e){const pk=packed(e);return `<div class="ev" style="border-left-color:${(STATUS[e.status]||STATUS.planned).c}" onclick="event.stopPropagation();openView('${e.id}')">
   <div class="t1"><span class="tm">${e.time||'-'}</span>${isNew(e)?'<span class="newbadge">NEW</span> ':''}${e.source==='wontech'?'<span class="syncbadge">연동</span>':statusChip(e.status)}</div>
@@ -288,12 +294,12 @@ function calWeek(){
   const dn=['월','화','수','목','금','토','일'];
   return `<div class="wk">${days.map((d,i)=>{const ds=fmtDate(d);const evs=byDate(ds);const isT=ds===today();
     return `<div class="wkcol ${isT?'today':''}"><div class="wkhd ${i===6?'sun':i===5?'sat':''}"><span>${dn[i]} ${d.getDate()}일${isT?' <span style="color:#2563eb">●</span>':''}</span><span style="color:var(--muted);font-weight:500">${evs.length||''}</span></div>
-      <div class="wkbody" onclick="openModal({date:'${ds}'})">${evs.map(evCard).join('')}${showShip?eByDate(ds).map(eEvCard).join(''):''}</div></div>`;}).join('')}</div>`;
+      <div class="wkbody" onclick="openModal({date:'${ds}'})">${evs.map(evCard).join('')}${showShip?eByDate(ds).map(eEvCard).join(''):''}${showShip?tiByDate(ds).map(tiEvCard).join(''):''}</div></div>`;}).join('')}</div>`;
 }
 function calMonth(){
   const y=refDate.getFullYear(),m=refDate.getMonth();const first=new Date(y,m,1);const start=weekStart(first);const dn=['월','화','수','목','금','토','일'];
   let cells='';for(let i=0;i<42;i++){const d=new Date(start);d.setDate(d.getDate()+i);const ds=fmtDate(d);const other=d.getMonth()!==m;const isT=ds===today();const evs=byDate(ds);
-    cells+=`<div class="mcell ${isT?'today':''} ${other?'other':''}" onclick="openModal({date:'${ds}'})"><div class="dn">${d.getDate()}</div>${evs.slice(0,4).map(e=>`<div class="mev" style="background:${(STATUS[e.status]||STATUS.planned).c}" onclick="event.stopPropagation();openView('${e.id}')">${e.time?e.time+' ':''}${esc(e.cust).slice(0,10)}</div>`).join('')}${showShip?eByDate(ds).slice(0,3).map(e=>`<div class="mev" style="background:${eKcol(e.kind)}" onclick="event.stopPropagation();openEq('${e.id}')" title="${esc(e.equipment+' · '+e.hospital)}">📦${esc(e.equipment).slice(0,8)}</div>`).join(''):''}${evs.length>4?`<div style="font-size:10px;color:var(--muted)">+${evs.length-4}</div>`:''}</div>`;}
+    cells+=`<div class="mcell ${isT?'today':''} ${other?'other':''}" onclick="openModal({date:'${ds}'})"><div class="dn">${d.getDate()}</div>${evs.slice(0,4).map(e=>`<div class="mev" style="background:${(STATUS[e.status]||STATUS.planned).c}" onclick="event.stopPropagation();openView('${e.id}')">${e.time?e.time+' ':''}${esc(e.cust).slice(0,10)}</div>`).join('')}${showShip?eByDate(ds).slice(0,3).map(e=>`<div class="mev" style="background:${eKcol(e.kind)}" onclick="event.stopPropagation();openEq('${e.id}')" title="${esc(e.equipment+' · '+e.hospital)}">📦${esc(e.equipment).slice(0,8)}</div>`).join(''):''}${showShip?tiByDate(ds).slice(0,2).map(e=>`<div class="mev" style="background:#8b5cf6" onclick="event.stopPropagation();openItemTI('${(e.serial||'').replace(/'/g,'')}')" title="${esc('회수 '+e.recovDev+' · '+e.clinic)}">♻️${esc(e.recovDev).slice(0,7)}</div>`).join(''):''}${evs.length>4?`<div style="font-size:10px;color:var(--muted)">+${evs.length-4}</div>`:''}</div>`;}
   return `<div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:10px">${y}년 ${m+1}월</div><div class="mgrid">${dn.map(x=>`<div class="mh">${x}</div>`).join('')}${cells}</div>`;
 }
 
@@ -505,7 +511,8 @@ function openEq(id,pre){const e=id?EMOVES.find(x=>x.id===id):null;const v=e||Obj
       <div class="fld"><label>주소</label><input id="e-addr" value="${esc(v.address)}"></div>
       <div class="fr"><div class="fld"><label>담당자</label><input id="e-handler" value="${esc(v.handler)}" placeholder="운송사 또는 영업" oninput="var s=document.getElementById('e-ht');if(!s.dataset.touched)s.value=clsHandler(this.value)"></div><div class="fld"><label>담당 구분</label><select id="e-ht" onchange="this.dataset.touched=1"><option value="">자동</option>${['운송','영업','내부'].map(k=>`<option ${v.handler_type===k?'selected':''}>${k}</option>`).join('')}</select></div></div>
       <div class="fld"><label>비고</label><textarea id="e-note">${esc(v.note)}</textarea></div>
-      ${(function(){const rel=relatedDemo(v.hospital);if(!rel.length)return'';return `<div class="fld"><label>🔗 관련 데모 일정 <span style="font-weight:400;color:var(--muted);font-size:11px">(같은 병원)</span></label>${rel.map(x=>`<div style="display:flex;gap:8px;align-items:center;padding:4px 0;font-size:12.5px"><span style="color:var(--muted);width:78px;flex-shrink:0">${x.date}</span><b style="color:var(--ink)">${esc(x.cust)}</b>${x.product?`<span style="color:#0891b2">${esc(x.product)}</span>`:''}${x.source==='wontech'?'<span class="syncbadge">연동</span>':''}</div>`).join('')}</div>`;})()}
+      ${(function(){const rel=relatedDemo(v.hospital);if(!rel.length)return'';return `<div class="fld"><label>🔗 관련 데모 일정 <span style="font-weight:400;color:var(--muted);font-size:11px">(같은 병원)</span></label>${rel.map(x=>`<div style="display:flex;gap:8px;align-items:center;padding:4px 0;font-size:12.5px"><span style="color:var(--muted);width:78px;flex-shrink:0">${x.date}</span><b style="color:var(--ink)">${esc(x.cust)}</b>${x.product?`<span style="color:#0891b2">${esc(x.product)}</span>`:''}</div>`).join('')}</div>`;})()}
+      ${(function(){const rel=relatedTradein(v.hospital);if(!rel.length)return'';return `<div class="fld"><label>🔗 이 거래처 보상판매(회수) <span style="font-weight:400;color:var(--muted);font-size:11px">(트레이드인)</span></label>${rel.map(s=>`<div style="display:flex;gap:8px;align-items:center;padding:4px 0;font-size:12.5px"><span style="color:var(--muted);width:78px;flex-shrink:0">${s.returnDate||'-'}</span><span class="chip" style="background:#ede9fe;color:#6d28d9">회수</span><b style="color:var(--ink)">${esc(s.recovDev)}</b>${s.serial?`<span style="color:var(--muted);font-size:11px">#${esc(s.serial)}</span>`:''}${tiUsage(s.usage)}</div>`).join('')}</div>`;})()}
     </div>
     <div class="mf"><div>${editing?`<button class="btn" style="color:var(--bad)" onclick="delEq('${e.id}')">삭제</button>`:''}${v.serial?` <button class="btn" onclick="openTimeline('${esc(String(v.serial).replace(/'/g,''))}')">📜 이력</button>`:''}</div><div><button class="btn" onclick="closeModal()">취소</button><button class="btn btn-primary" onclick="saveEq('${editing?e.id:''}')">저장</button></div></div>`;
   document.getElementById('mbg').style.display='flex';
@@ -575,6 +582,173 @@ function viewEana(){
        <div class="card"><div class="sect"><span>🎯 종류 분포 <span class="muted" style="font-weight:400;font-size:11px">· 클릭 → 내역</span></span></div>${kArr.map(([n,arr])=>{const kk=reg(arr);return `<div class="rowbar" onclick="openRecsK('${kk}','종류 · ${esc(n)}')" style="display:flex;align-items:center;gap:10px;padding:6px 8px"><div style="width:70px">${eKindChip(n)}</div><div class="bar" style="flex:1"><i style="width:${arr.length/maxK*100}%;background:${eKcol(n)}"></i></div><b style="width:44px;text-align:right">${arr.length}</b></div>`;}).join('')}</div>
      </div>
      <div class="card"><div class="sect"><span>🏥 병원별 이력 (상위) <span class="muted" style="font-weight:400;font-size:11px">· 클릭 → 내역</span></span></div>${hoArr.map(([n,arr])=>{const kk=reg(arr);return `<div class="rowbar" onclick="openRecsK('${kk}','병원 · ${esc(n)}')" style="display:flex;align-items:center;gap:10px;padding:6px 8px"><div style="width:200px;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${arr.length/maxHo*100}%;background:var(--brand)"></i></div><b style="width:40px;text-align:right">${arr.length}</b></div>`;}).join('')||'<div class="muted" style="padding:10px">없음</div>'}</div></div>`;
+}
+
+// ═══════════ 보상판매(트레이드인) — wt-tradein 통합 ═══════════
+let TI={items:[],uncollected:[],asOf:''},TIEDITS={},TINOTBL=false;
+let _tiQ='comp',_tiQSearch='',_tiF={search:'',dev:'',rep:'',status:'',year:''};
+async function loadTradein(){
+  if(DEMO){TINOTBL=true;return;}
+  try{
+    const r=await _sb.from('cons_cache').select('data').eq('key','tradein').maybeSingle();
+    if(r.error||!r.data){TINOTBL=true;return;}
+    TI=r.data.data||{items:[],uncollected:[],asOf:''};
+    const r2=await _sb.from('cons_cache').select('data').eq('key','tradein_edits').maybeSingle();
+    TIEDITS=(r2&&r2.data&&r2.data.data)||{};
+    tiApplyEdits();TINOTBL=false;
+  }catch(e){TINOTBL=true;}
+}
+function tiApplyEdits(){
+  if(!TI._raw)TI._raw=(TI.items||[]).map(x=>Object.assign({},x));
+  TI.items=TI._raw.map(x=>{const c=Object.assign({},x);const e=x.serial&&TIEDITS[x.serial];if(e){['comp','paid','usage','refurbOut','note','payDate','outDate','invoice'].forEach(k=>{if(e[k]!==undefined)c[k]=e[k];});c._edited=true;}return c;});
+}
+function tiUsage(u){if(u==='리퍼')return '<span class="chip" style="background:#dbeafe;color:#1d4ed8">리퍼</span>';if(u==='폐기')return '<span class="chip" style="background:#f1f5f9;color:#64748b">폐기</span>';if(!u)return '<span class="chip" style="background:#fef9c3;color:#b45309">미정</span>';return '<span class="chip" style="background:#fef9c3;color:#b45309">'+esc(u)+'</span>';}
+function tiYn(b,y,n){return b?'<span class="chip" style="background:#dcfce7;color:#16a34a">'+y+'</span>':'<span class="chip" style="background:#fee2e2;color:#dc2626">'+n+'</span>';}
+function tiDaysSince(d){if(!d)return null;try{return Math.floor((new Date()-new Date(d))/86400000);}catch(e){return null;}}
+function tiQueues(){const it=TI.items||[];return{
+  comp:{label:'보상 미처리',color:'#f59e0b',act:'보상처리',rows:it.filter(x=>!x.comp)},
+  pay:{label:'입금 대기',color:'#ef4444',act:'입금완료',rows:it.filter(x=>x.comp&&!x.paid)},
+  usage:{label:'활용 미정',color:'#eab308',act:'리퍼/폐기',rows:it.filter(x=>x.paid&&!x.usage)},
+  refurb:{label:'리퍼 출고대기',color:'#3b82f6',act:'출고',rows:it.filter(x=>x.usage==='리퍼'&&!x.refurbOut)},
+  uncol:{label:'미회수',color:'#dc2626',act:'회수',rows:(TI.uncollected||[])}
+};}
+function tiPending(){const Q=tiQueues();return Q.comp.rows.length+Q.pay.rows.length+Q.usage.rows.length+Q.uncol.rows.length;}
+function tiBadge(){const b=document.getElementById('ti-badge');if(!b)return;const p=TINOTBL?0:tiPending();if(p>0){b.textContent=p;b.style.display='inline-block';}else b.style.display='none';}
+function tiByClinic(clinic){const c=hnorm(clinic);if(!c||TINOTBL)return[];return (TI.items||[]).filter(x=>{const h=hnorm(x.clinic);return h&&(h.indexOf(c)>=0||c.indexOf(h)>=0);}).slice(0,6);}
+function tiByDate(ds){return (TI.items||[]).filter(x=>x.returnDate===ds);}
+function tiEvCard(e){return `<div class="ev" style="border-left-color:#8b5cf6;background:#f5f3ff" onclick="event.stopPropagation();openItemTI('${(e.serial||'').replace(/'/g,'')}')">
+  <div class="t1"><span style="font-size:11px">♻️</span><span class="chip" style="background:#ede9fe;color:#6d28d9">회수</span></div>
+  <div class="cust">${esc(e.recovDev)||'-'}${e.serial?' <span style="font-size:10px;color:var(--muted)">#'+esc(e.serial)+'</span>':''}</div>
+  <div class="meta">${esc(e.clinic)}${e.rep?' · '+esc(e.rep):''}</div></div>`;}
+
+function viewTiWork(){
+  if(TINOTBL)return head('📥 보상 처리 현황','트레이드인 장비 처리','')+`<div class="notif warn"><i class="bi bi-exclamation-triangle-fill"></i> 보상판매 데이터가 없습니다 (cons_cache <b>tradein</b>). 엑셀 이관 후 활성화됩니다.</div></div>`;
+  const it=TI.items||[];
+  const comp=it.filter(x=>x.comp),paid=it.filter(x=>x.paid),rStock=it.filter(x=>x.usage==='리퍼'&&!x.refurbOut),scrap=it.filter(x=>x.usage==='폐기');
+  const kpis=[{l:'총 회수',v:it.length,items:it},{l:'보상완료',v:comp.length,items:comp,c:'var(--ok)'},{l:'입금완료',v:paid.length,items:paid,c:'#0891b2'},{l:'리퍼 재고',v:rStock.length,items:rStock,c:'#2563eb'},{l:'폐기',v:scrap.length,items:scrap},{l:'미회수',v:(TI.uncollected||[]).length,items:(TI.uncollected||[]),c:'var(--bad)'}];
+  const Q=tiQueues();const order=['comp','pay','usage','refurb','uncol'];
+  const pipe=order.map(k=>{const q=Q[k];const on=_tiQ===k;return `<div onclick="tiSetQueue('${k}')" style="cursor:pointer;flex:1;min-width:118px;background:${on?q.color:'#fff'};color:${on?'#fff':'var(--ink)'};border:1.5px solid ${on?q.color:'var(--line)'};border-radius:12px;padding:12px 14px"><div style="font-size:12px;${on?'opacity:.9':'color:var(--muted)'}">${q.label}</div><div style="font-size:24px;font-weight:800;margin-top:2px">${q.rows.length}</div><div style="font-size:10.5px;margin-top:1px;${on?'opacity:.85':'color:var(--muted)'}">${q.rows.length?(on?'▼ 아래 목록':q.act+' 필요'):'✓ 완료'}</div></div>`;}).join('');
+  return head('📥 보상 처리 현황','처리 단계별 대기 · 카드 클릭 → 목록 · 버튼 바로처리 · 숫자 클릭 → 내역','')
+    +`<div class="grid kpis">${kpis.map(k=>{const kk=reg(k.items);return `<div class="kpi clk" onclick="tiDrillK('${kk}','${esc(k.l)}')"><div class="v" style="color:${k.c||'var(--ink)'}">${k.v}대</div><div class="l">${esc(k.l)} <i class="bi bi-list-ul" style="font-size:10px;opacity:.45"></i></div></div>`;}).join('')}</div>`
+    +`<div class="sect">🔀 처리 파이프라인 <span class="muted" style="font-weight:400;font-size:11px">(카드 클릭 → 대기목록)</span></div>`
+    +`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px">${pipe}</div>`
+    +tiQueueBox();
+}
+function tiQueueBox(){
+  const Q=tiQueues(),q=Q[_tiQ],k=_tiQ;const qq=(_tiQSearch||'').toLowerCase();
+  const rows0=(q.rows||[]).filter(x=>{if(!qq)return true;return ((x.clinic||'')+' '+(x.serial||'')+' '+(x.rep||'')+' '+(x.recovDev||'')).toLowerCase().indexOf(qq)>=0;});
+  let hd,body;
+  if(k==='uncol'){
+    hd='<tr><th>거래처</th><th>납품장비</th><th>회수장비</th><th>시리얼</th><th>납품일</th><th>경과일</th><th>담당</th><th>비고</th></tr>';
+    body=rows0.map(x=>{const el=tiDaysSince(x.deliveryDate);const ec=el==null?'var(--muted)':el>=365?'#dc2626':el>=180?'#f97316':'var(--muted)';return `<tr><td>${esc(x.clinic)}</td><td>${esc(x.newDev)}</td><td>${esc(x.recovDev)}</td><td>${esc(x.serial)}</td><td>${esc(x.deliveryDate||'-')}</td><td style="font-weight:700;color:${ec}">${el==null?'-':el+'일'}</td><td>${esc(x.rep)}</td><td style="white-space:normal;max-width:280px;color:var(--muted)">${esc(x.note)}</td></tr>`;}).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:22px">미회수 없음 🎉</td></tr>';
+  }else{
+    const rows=rows0.slice().sort((a,b)=>(b.returnDate||'').localeCompare(a.returnDate||''));
+    hd='<tr><th>반납일</th><th>거래처</th><th>회수장비</th><th>시리얼</th><th>담당</th><th>현재상태</th><th style="width:150px">처리</th></tr>';
+    body=rows.map(x=>{const s=(x.serial||'').replace(/'/g,'');let act='';
+      if(k==='comp')act=`<button class="btn btn-sm" style="background:#4f46e5;color:#fff;border-color:#4f46e5" onclick="event.stopPropagation();quickSetTI('${s}',{comp:true})">✓ 보상</button>`;
+      else if(k==='pay')act=`<button class="btn btn-sm" style="background:#4f46e5;color:#fff;border-color:#4f46e5" onclick="event.stopPropagation();quickSetTI('${s}',{paid:true,payDate:today()})">✓ 입금</button>`;
+      else if(k==='usage')act=`<button class="btn btn-sm" style="background:#2563eb;color:#fff;border-color:#2563eb" onclick="event.stopPropagation();quickSetTI('${s}',{usage:'리퍼'})">리퍼</button> <button class="btn btn-sm" onclick="event.stopPropagation();quickSetTI('${s}',{usage:'폐기'})">폐기</button>`;
+      else if(k==='refurb')act=`<button class="btn btn-sm" style="background:#4f46e5;color:#fff;border-color:#4f46e5" onclick="event.stopPropagation();quickOutTI('${s}')">출고 →</button>`;
+      const stat=(x.comp?'<span class="chip" style="background:#dcfce7;color:#16a34a">보상</span> ':'')+(x.paid?'<span class="chip" style="background:#dcfce7;color:#16a34a">입금</span> ':'')+tiUsage(x.usage);
+      return `<tr class="clk" onclick="openItemTI('${s}')"><td>${esc(x.returnDate||'-')}</td><td>${esc(x.clinic)}</td><td>${esc(x.recovDev)}</td><td>${esc(x.serial)}</td><td>${esc(x.rep)}</td><td>${stat}</td><td onclick="event.stopPropagation()">${act}</td></tr>`;}).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:22px">✓ 처리할 항목이 없습니다</td></tr>';
+  }
+  return `<div class="sect">${Q[_tiQ].label} <span class="muted" style="font-weight:400;font-size:12px">· ${rows0.length}건 · 버튼 바로처리 / 행 클릭 상세편집</span></div>`
+    +`<input class="sel" style="margin-bottom:10px;width:260px" placeholder="🔍 큐 내 검색 (거래처·시리얼·담당)" value="${esc(_tiQSearch||'')}" onchange="_tiQSearch=this.value;render()">`
+    +`<div class="card" style="padding:0;overflow:auto"><table><thead>${hd}</thead><tbody>${body}</tbody></table></div>`
+    +tiActivityBox();
+}
+function tiActivityBox(){
+  const byS={};(TI.items||[]).forEach(x=>{if(x.serial)byS[x.serial]=x;});
+  const arr=Object.keys(TIEDITS).map(s=>({s,e:TIEDITS[s]})).filter(o=>o.e&&o.e._at).sort((a,b)=>(b.e._at||'').localeCompare(a.e._at||'')).slice(0,20);
+  if(!arr.length)return '';
+  const rows=arr.map(o=>{const it=byS[o.s]||{};return `<tr class="clk" onclick="openItemTI('${(o.s||'').replace(/'/g,'')}')"><td>${esc(o.e._at||'-')}</td><td>${esc(it.clinic||'-')}</td><td>${esc(it.recovDev||'-')}</td><td>${esc(o.s)}</td><td>${esc(tiEditSummary(o.e))}</td><td>${esc(o.e._by||'-')}</td></tr>`;}).join('');
+  return `<div class="card" style="margin-top:16px;padding:0;overflow:auto"><div class="sect" style="padding:14px 16px 4px">🕘 최근 처리 내역 <span class="muted" style="font-weight:400;font-size:11px">(사이트 처리·수정 기록)</span></div><table><thead><tr><th>처리일</th><th>거래처</th><th>회수장비</th><th>시리얼</th><th>처리내용</th><th>처리자</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function tiEditSummary(e){const p=[];if(e.comp)p.push('보상처리');if(e.paid)p.push('입금'+(e.payDate?'('+e.payDate+')':''));if(e.usage)p.push('활용:'+e.usage);if(e.refurbOut)p.push('출고:'+e.refurbOut);if(e.invoice)p.push('계산서');if(e.note)p.push('비고');return p.join(', ')||'수정';}
+function tiSetQueue(k){_tiQ=k;_tiQSearch='';render();}
+function tiDrillK(k,title){tiDrill(_drill[k]||[],title);}
+function tiDrill(rows,title){rows=(rows||[]).slice().sort((a,b)=>((b.returnDate||b.deliveryDate||'')).localeCompare(a.returnDate||a.deliveryDate||''));
+  const body=`<table><thead><tr><th>일자</th><th>거래처</th><th>납품장비</th><th>회수장비</th><th>시리얼</th><th>담당</th><th>보상</th><th>입금</th><th>활용</th></tr></thead><tbody>${rows.map(x=>`<tr class="clk" onclick="openItemTI('${(x.serial||'').replace(/'/g,'')}')"><td style="white-space:nowrap">${esc(x.returnDate||x.deliveryDate||'-')}</td><td>${esc(x.clinic)}</td><td>${esc(x.newDev)}</td><td>${esc(x.recovDev)}</td><td>${esc(x.serial)}</td><td>${esc(x.rep)}</td><td>${tiYn(x.comp,'완료','미처리')}</td><td>${tiYn(x.paid,'완료','미입금')}</td><td>${tiUsage(x.usage)}</td></tr>`).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:22px">내역 없음</td></tr>'}</tbody></table>`;
+  document.getElementById('modal').classList.add('recs');
+  document.getElementById('modal').innerHTML=`<div class="mh"><h3>${esc(title)} <span class="muted" style="font-size:12px;font-weight:500">${rows.length}대</span></h3><button class="x" onclick="closeModal()">×</button></div><div class="mb" style="padding:0"><div style="overflow:auto;max-height:64vh">${body}</div></div><div class="mf" style="padding:12px 18px"><div class="muted" style="font-size:11.5px">행 클릭 → 상세/편집</div><button class="btn" onclick="closeModal()">닫기</button></div>`;
+  document.getElementById('mbg').style.display='flex';
+}
+async function quickSetTI(serial,patch){
+  if(!serial){toast('시리얼 없는 항목은 처리 불가');return;}
+  const e=TIEDITS[serial]||{};for(const k in patch)e[k]=patch[k];e._by=ME;e._at=today();TIEDITS[serial]=e;
+  const r=await _sb.from('cons_cache').upsert({key:'tradein_edits',data:TIEDITS},{onConflict:'key'});
+  if(r.error){toast('저장 실패: '+r.error.message);return;}
+  tiApplyEdits();render();toast('처리됨 ✓');
+}
+function quickOutTI(serial){const d=prompt('출고처(거래처명)를 입력하세요:');if(d===null)return;quickSetTI(serial,{refurbOut:(d||'').trim(),outDate:today()});}
+function openItemTI(serial){const x=(TI.items||[]).find(i=>i.serial===serial);if(!x){toast('항목을 찾을 수 없습니다');return;}
+  const ro=[['거래처',x.clinic],['납품장비(판매)',x.newDev],['회수장비',x.recovDev],['시리얼',x.serial],['제작년도',x.mfgYear],['실제 반납일',x.returnDate],['기안서 반납일',x.draftDate],['지급요청일',x.payReq],['영업담당',x.rep]];
+  const usageOpts=['','리퍼','폐기','연구소','선행 연구','데모'];
+  const ip='padding:6px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px;width:100%';
+  const rel=relatedShip(x.clinic).slice(0,5);
+  const relH=rel.length?`<div style="padding:10px 0 4px;border-top:1px solid var(--line);margin-top:12px"><div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:6px">🔗 이 거래처 장비 이동</div>${rel.map(s=>`<div style="display:flex;gap:8px;align-items:center;padding:3px 0;font-size:12px"><span style="color:var(--muted);width:78px;flex-shrink:0">${s.start_date||'-'}</span>${eKindChip(s.kind)}<b style="color:var(--ink)">${esc(s.equipment)}</b>${s.serial?'<span style="color:var(--muted);font-size:11px">#'+esc(s.serial)+'</span>':''}</div>`).join('')}</div>`:'';
+  document.getElementById('modal').classList.add('recs');
+  document.getElementById('modal').innerHTML=`<div class="mh"><h3>${esc(x.clinic)} · ${esc(x.recovDev)} (${esc(x.serial||'-')})${x._edited?' <span style="font-size:11px;color:#6d28d9;background:#ede9fe;padding:2px 8px;border-radius:8px">사이트 수정됨</span>':''}</h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="mb">
+      <div style="display:grid;grid-template-columns:120px 1fr;gap:0;font-size:13px;border:1px solid var(--line);border-radius:9px;overflow:hidden">${ro.map(p=>`<div style="color:var(--muted);padding:8px 12px;background:#fafcff;border-bottom:1px solid var(--line2)">${p[0]}</div><div style="padding:8px 12px;border-bottom:1px solid var(--line2);font-weight:500">${esc(p[1]||'-')}</div>`).join('')}</div>
+      ${relH}
+      <div style="font-size:12px;font-weight:700;color:#334155;margin:14px 0 8px">✏️ 상태 관리</div>
+      <div style="display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:center;font-size:13px">
+        <label>보상처리</label><div><input type="checkbox" id="ti-comp" ${x.comp?'checked':''} style="width:18px;height:18px;vertical-align:middle"> 완료</div>
+        <label>매입계산서</label><input id="ti-invoice" value="${esc(x.invoice)}" style="${ip}">
+        <label>입금여부</label><div><input type="checkbox" id="ti-paid" ${x.paid?'checked':''} style="width:18px;height:18px;vertical-align:middle"> 완료</div>
+        <label>입금일</label><input type="date" id="ti-payDate" value="${esc(x.payDate)}" style="${ip}">
+        <label>활용여부</label><select id="ti-usage" style="${ip}">${usageOpts.map(o=>`<option value="${esc(o)}" ${x.usage===o?'selected':''}>${o||'(미정)'}</option>`).join('')}</select>
+        <label>리퍼출고처</label><input id="ti-refurbOut" value="${esc(x.refurbOut)}" style="${ip}">
+        <label>출고일</label><input type="date" id="ti-outDate" value="${esc(x.outDate)}" style="${ip}">
+        <label>비고</label><input id="ti-note" value="${esc(x.note)}" style="${ip}">
+      </div>
+    </div>
+    <div class="mf"><div>${x._edited?`<button class="btn" style="color:var(--bad)" onclick="resetEditTI('${(x.serial||'').replace(/'/g,'')}')">↩ 원본 복원</button>`:''}</div><div><button class="btn" onclick="closeModal()">취소</button><button class="btn btn-primary" onclick="saveEditTI('${(x.serial||'').replace(/'/g,'')}')">💾 저장</button></div></div>`;
+  document.getElementById('mbg').style.display='flex';
+}
+async function saveEditTI(serial){if(!serial){toast('시리얼 없는 항목은 편집 불가');return;}
+  const g=id=>document.getElementById(id);const e=TIEDITS[serial]||{};
+  e.comp=g('ti-comp').checked;e.paid=g('ti-paid').checked;e.payDate=g('ti-payDate').value;e.usage=g('ti-usage').value;e.invoice=g('ti-invoice').value.trim();e.refurbOut=g('ti-refurbOut').value.trim();e.outDate=g('ti-outDate').value;e.note=g('ti-note').value.trim();e._by=ME;e._at=today();
+  TIEDITS[serial]=e;
+  const r=await _sb.from('cons_cache').upsert({key:'tradein_edits',data:TIEDITS},{onConflict:'key'});
+  if(r.error){toast('저장 실패: '+r.error.message);return;}
+  tiApplyEdits();closeModal();render();toast('저장됨 ✓');
+}
+async function resetEditTI(serial){if(!TIEDITS[serial])return closeModal();if(!confirm('이 항목의 사이트 수정분을 지우고 원본으로 되돌릴까요?'))return;delete TIEDITS[serial];const r=await _sb.from('cons_cache').upsert({key:'tradein_edits',data:TIEDITS},{onConflict:'key'});if(r.error){toast('실패: '+r.error.message);return;}tiApplyEdits();closeModal();render();toast('복원됨');}
+function viewTiList(){
+  if(TINOTBL)return head('📋 회수 내역','보상판매 회수 장비','')+`<div class="notif warn">보상판매 데이터가 없습니다 (cons_cache tradein).</div></div>`;
+  const it=TI.items||[];
+  const devs=[...new Set(it.map(x=>x.recovDev).filter(Boolean))].sort();
+  const reps=[...new Set(it.map(x=>x.rep).filter(Boolean))].sort();
+  const yrs=[...new Set(it.map(x=>(x.returnDate||'').slice(0,4)).filter(y=>y.length===4))].sort().reverse();
+  const f=_tiF;
+  const rows=it.filter(x=>{
+    if(f.dev&&x.recovDev!==f.dev)return false;if(f.rep&&x.rep!==f.rep)return false;
+    if(f.year&&(x.returnDate||'').slice(0,4)!==f.year)return false;
+    if(f.status==='comp0'&&x.comp)return false;if(f.status==='paid0'&&x.paid)return false;if(f.status==='usage0'&&x.usage)return false;if(f.status==='refurb'&&x.usage!=='리퍼')return false;if(f.status==='scrap'&&x.usage!=='폐기')return false;
+    if(f.search){const s=((x.clinic||'')+' '+(x.serial||'')+' '+(x.newDev||'')+' '+(x.recovDev||'')+' '+(x.rep||'')).toLowerCase();if(s.indexOf(f.search.toLowerCase())<0)return false;}
+    return true;
+  }).sort((a,b)=>(b.returnDate||'').localeCompare(a.returnDate||''));
+  const bar=`<input class="sel" style="width:190px" placeholder="🔍 거래처·시리얼·장비" value="${esc(f.search)}" onchange="_tiF.search=this.value;render()">`
+    +`<select class="sel" onchange="_tiF.dev=this.value;render()"><option value="">전체 회수장비</option>${devs.map(d=>`<option ${f.dev===d?'selected':''}>${esc(d)}</option>`).join('')}</select>`
+    +`<select class="sel" onchange="_tiF.rep=this.value;render()"><option value="">전체 담당</option>${reps.map(d=>`<option ${f.rep===d?'selected':''}>${esc(d)}</option>`).join('')}</select>`
+    +`<select class="sel" onchange="_tiF.status=this.value;render()"><option value="">전체 상태</option><option value="comp0" ${f.status==='comp0'?'selected':''}>보상 미처리</option><option value="paid0" ${f.status==='paid0'?'selected':''}>미입금</option><option value="usage0" ${f.status==='usage0'?'selected':''}>활용 미정</option><option value="refurb" ${f.status==='refurb'?'selected':''}>리퍼</option><option value="scrap" ${f.status==='scrap'?'selected':''}>폐기</option></select>`
+    +`<select class="sel" onchange="_tiF.year=this.value;render()"><option value="">전체 연도</option>${yrs.map(y=>`<option ${f.year===y?'selected':''}>${y}</option>`).join('')}</select>`;
+  const body=rows.slice(0,600).map(x=>`<tr class="clk" onclick="openItemTI('${(x.serial||'').replace(/'/g,'')}')"><td style="white-space:nowrap">${esc(x.returnDate||'-')}</td><td>${esc(x.clinic)}</td><td>${esc(x.newDev)}</td><td>${esc(x.recovDev)}</td><td>${esc(x.serial)}</td><td>${esc(x.rep)}</td><td>${tiYn(x.comp,'완료','미처리')}</td><td>${tiYn(x.paid,'완료','미입금')}</td><td>${tiUsage(x.usage)}</td><td>${x.refurbOut?'<span class="chip" style="background:#dbeafe;color:#1d4ed8">'+esc(x.refurbOut)+'</span>':'-'}</td></tr>`).join('')||'<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">데이터 없음</td></tr>';
+  return head('📋 회수 내역','보상판매 회수 장비 전체 · 행 클릭 → 상세/편집',bar)
+    +`<div class="muted" style="font-size:12px;margin-bottom:8px">${rows.length.toLocaleString()}대${rows.length>600?' 중 600대 표시':''}</div>`
+    +`<div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>반납일</th><th>거래처</th><th>납품장비</th><th>회수장비</th><th>시리얼</th><th>담당</th><th>보상</th><th>입금</th><th>활용</th><th>리퍼출고</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+}
+function viewTiRefurb(){
+  if(TINOTBL)return head('♻️ 리퍼 재고','리퍼 처리 장비','')+`<div class="notif warn">보상판매 데이터가 없습니다 (cons_cache tradein).</div></div>`;
+  const refurb=(TI.items||[]).filter(x=>x.usage==='리퍼');
+  const outArr=refurb.filter(x=>x.refurbOut),stock=refurb.filter(x=>!x.refurbOut);
+  const kpis=[{l:'리퍼 총계',v:refurb.length,items:refurb},{l:'재고(미출고)',v:stock.length,items:stock,c:'var(--ok)'},{l:'출고완료',v:outArr.length,items:outArr}];
+  const rows=refurb.slice().sort((a,b)=>(b.returnDate||'').localeCompare(a.returnDate||'')).map(x=>`<tr class="clk" onclick="openItemTI('${(x.serial||'').replace(/'/g,'')}')"><td>${x.refurbOut?'<span class="chip" style="background:#f1f5f9;color:#64748b">출고</span>':'<span class="chip" style="background:#dcfce7;color:#16a34a">재고</span>'}</td><td>${esc(x.recovDev)}</td><td>${esc(x.serial)}</td><td>${esc(x.mfgYear)}</td><td style="white-space:nowrap">${esc(x.returnDate||'-')}</td><td>${esc(x.clinic)}</td><td>${esc(x.refurbOut||'-')}</td><td>${esc(x.outDate||'-')}</td></tr>`).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">리퍼 없음</td></tr>';
+  return head('♻️ 리퍼 재고 · 출고','리퍼 처리된 회수장비 재고/출고 · 숫자 클릭 → 내역','')
+    +`<div class="grid kpis">${kpis.map(k=>{const kk=reg(k.items);return `<div class="kpi clk" onclick="tiDrillK('${kk}','${esc(k.l)}')"><div class="v" style="color:${k.c||'var(--ink)'}">${k.v}대</div><div class="l">${esc(k.l)} <i class="bi bi-list-ul" style="font-size:10px;opacity:.45"></i></div></div>`;}).join('')}</div>`
+    +`<div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>상태</th><th>회수장비</th><th>시리얼</th><th>제작년도</th><th>반납일</th><th>원거래처</th><th>출고처</th><th>출고일</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 
 boot();
