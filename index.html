@@ -1218,7 +1218,7 @@ function viewGantt(){
   // 시리얼 있으면 시리얼별(장비 한 대 추적), 없으면 이동 1건=1행(병원명 표시) — 시리얼 없다고 누락 안 됨
   const rmap={};EMOVES.forEach(e=>{const s=String(e.serial||'').trim();const key=s?('S:'+s):('M:'+e.id);(rmap[key]=rmap[key]||[]).push(e);});
   let serials=Object.keys(rmap).map(key=>{const ms=rmap[key].slice().sort((a,b)=>(a.start_date||'').localeCompare(b.start_date||''));
-    const spans=ms.map(m=>({m,st:m.start_date||'',en:ganttSpanEnd(m,winEnd)})).filter(sp=>sp.st&&sp.en>=winStart&&sp.st<=winEnd);
+    const spans=ms.map(m=>({m,st:m.start_date||'',en:ganttSpanEnd(m,winEnd)})).filter(sp=>sp.st&&sp.en>=winStart&&sp.st<=winEnd&&sp.m.kind!=='납품'&&sp.m.kind!=='출고');  // 납품/출고(판매완료)는 타임라인 제외
     const last=ms[ms.length-1]||{};
     return {serial:key.charAt(0)==='S'?key.slice(2):'',model:last.equipment||'(제품 미지정)',hosp:last.hospital||'',mid:last.id,spans};
   }).filter(r=>r.spans.length);
@@ -1265,7 +1265,7 @@ function viewGantt(){
     const collapsed=!!_ganttCol[mn];
     body+=`<tr onclick="ganttToggle('${mn.replace(/'/g,"\\'")}')" style="cursor:pointer;background:#eef2f6"><td colspan="${cols}" style="padding:0;position:sticky;left:0"><div style="${stick};padding:7px 12px;display:flex;align-items:center;gap:8px"><i class="bi bi-chevron-${collapsed?'right':'down'}" style="font-size:10px;color:#64748b"></i><span style="width:11px;height:11px;border-radius:3px;background:${modelColor(mn)};display:inline-block;flex-shrink:0"></span><b style="font-size:13px;color:#0f172a">${esc(mn)}</b><span style="font-size:11px;color:#64748b">${gr.length}대${long.length?` · <span style="color:#9a3412">장기 ${long.length}</span>`:''}</span></div></td></tr>`;
     if(!collapsed){short.forEach(x=>{body+=unitRow(x.r,false);});
-      if(long.length){body+=`<tr><td colspan="${cols}" style="padding:0;position:sticky;left:0"><div style="${stick};padding:3px 12px 3px 24px;background:#fff7ed;font-size:10.5px;color:#9a3412;font-weight:700">🕐 1개월 이상 장기 데모 (${long.length}대)</div></td></tr>`;long.forEach(x=>{body+=unitRow(x.r,true);});}
+      if(long.length){body+=`<tr style="background:#fff7ed"><td colspan="${cols}" style="padding:0"><div style="${stick};padding:3px 12px 3px 24px;font-size:10.5px;color:#9a3412;font-weight:700">🕐 1개월 이상 장기 데모 (${long.length}대)</div></td></tr>`;long.forEach(x=>{body+=unitRow(x.r,true);});}
     }
   });
   if(!body)body=`<tr><td colspan="${cols}" style="text-align:center;color:var(--muted);padding:30px">이 기간에 표시할 장비가 없습니다</td></tr>`;
@@ -1274,7 +1274,7 @@ function viewGantt(){
     +`<button class="btn btn-sm" style="${ganttOnly?'background:#0f172a;color:#fff;border-color:#0f172a':''}" onclick="ganttOnly=!ganttOnly;render()">${ganttOnly?'✓ ':''}진행중만</button>`
     +`<button class="btn btn-sm" onclick="ganttAllCol(true)">모두 접기</button><button class="btn btn-sm" onclick="ganttAllCol(false)">모두 펼치기</button>`
     +`<select class="sel" onchange="ganttEq=this.value;render()"><option value="">제품 전체</option>${eqOpts.map(x=>`<option ${ganttEq===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`;
-  const legend=['데모','대체','교체','납품','철수'].map(k=>`<span style="font-size:11px;color:${eKcol(k)};background:${eKcol(k)}22;border-radius:5px;padding:2px 8px;margin-right:4px">${k}</span>`).join('');
+  const legend=['데모','대체','교체','철수'].map(k=>`<span style="font-size:11px;color:${eKcol(k)};background:${eKcol(k)}22;border-radius:5px;padding:2px 8px;margin-right:4px">${k}</span>`).join('');
   return head('📊 데모 진행 타임라인',`${winStart} ~ ${winEnd} · ${serials.length}대 · 제품군 헤더 클릭→접기/펼치기 · 막대 클릭→상세 · 짧은 데모 위 / 장기(1개월↑) 아래`,ctl)
     +`<div style="margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="muted" style="font-size:11px">막대색=제품군 · 종류</span>${legend}${serialLess?`<span style="font-size:11px;color:#b45309;background:#fef3c7;border-radius:5px;padding:2px 8px" title="시리얼 미기재 이동은 병원명으로 표시(같은 장비 추적 불가)">시리얼無 ${serialLess}건 = 병원명 표시</span>`:''}<span class="muted" style="font-size:11px;margin-left:auto">📍 = 오늘 위치</span></div>`
     +`<div class="card" style="padding:0;overflow:auto"><table style="border-collapse:separate;border-spacing:0;table-layout:fixed;width:100%;min-width:${190+N*34}px"><colgroup><col style="width:190px">${days.map(()=>'<col>').join('')}</colgroup><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div></div>`;
