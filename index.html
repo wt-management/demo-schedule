@@ -820,6 +820,27 @@ function occupiedOn(model,ds){return demoLoans(model).filter(e=>e.start_date<=ds
 function availModels(){const m={};EMOVES.forEach(e=>{if((e.kind==='데모'||e.kind==='대체')&&e.equipment&&e.start_date)m[e.equipment]=(m[e.equipment]||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);}
 function fleetDefault(model,days){let mx=1;(days||[]).forEach(ds=>{const o=occupiedOn(model,ds);if(o>mx)mx=o;});return mx;}
 function fleetOf(model,days){return FLEET[model]!=null?FLEET[model]:fleetDefault(model,days);}
+let _availExp={};
+function availToggle(md){_availExp[md]=!_availExp[md];render();}
+function availDetail(m,fleet,cols){
+  const units=assetSnapshot(today()).filter(x=>x.model===m&&x.onbook);
+  const ord={'데모중':0,'수리중':1,'리퍼':2,'창고':3};
+  units.sort((a,b)=>((ord[a.status]!=null?ord[a.status]:9)-(ord[b.status]!=null?ord[b.status]:9))||((eDays(b.lastDate)||0)-(eDays(a.lastDate)||0)));
+  const cnt=s=>units.filter(x=>x.status===s).length;const out=cnt('데모중'),stock=cnt('창고');
+  const untracked=Math.max(0,(fleet||0)-units.length);
+  const card=x=>{const c=INV_STCOL[x.status]||'#64748b';const dd=x.status==='데모중'?eDays(x.lastDate):null;const sk=String(x.serial).replace(/'/g,"\\'");
+    return `<div onclick="openAssetCard('${sk}')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fff;border:1px solid var(--line);border-left:3px solid ${c};border-radius:8px;cursor:pointer;font-size:12px">`
+      +`<b style="color:#2563eb;flex-shrink:0">#${esc(x.serial)}</b>`
+      +`<span class="chip" style="background:${c}22;color:${c};flex-shrink:0">${esc(x.status)}</span>`
+      +`<span style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.location||'-')}</span>`
+      +`${dd!=null?`<span style="margin-left:auto;font-weight:700;flex-shrink:0;color:${dd>60?'var(--bad)':dd>30?'#d97706':'var(--muted)'}">${dd}일</span>`:''}</div>`;};
+  return `<tr><td colspan="${cols}" style="padding:0;border-bottom:2px solid #e2e8f0"><div style="position:sticky;left:0;width:min(1180px,calc(100vw - 300px));padding:12px 16px;background:#f8fafc">`
+    +`<div style="display:flex;gap:14px;align-items:center;margin-bottom:10px;font-size:12.5px;flex-wrap:wrap"><b style="color:#0f172a">${esc(m)} 개별 현황</b>`
+    +`<span style="color:var(--muted)">보유 <b>${fleet}</b>대</span><span style="color:#2563eb">🔵 데모중 <b>${out}</b></span><span style="color:#16a34a">🟢 창고 <b>${stock}</b></span>`
+    +`${untracked>0?`<span style="color:#94a3b8">그 외 보유(시리얼 미추적) ${untracked}대</span>`:''}<span style="color:var(--muted);font-size:11px;margin-left:auto">카드 클릭 → 자산 상세</span></div>`
+    +`${units.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px">${units.map(card).join('')}</div>`:`<div style="color:var(--muted);font-size:12px">시리얼 단위로 추적되는 내역이 없습니다 (이동이력에 시리얼 미기재). 보유 ${fleet}대는 창고 재고로 관리됩니다.</div>`}`
+    +`</div></td></tr>`;
+}
 function viewAvail(){
   if(ENOTBL)return head('🗓️ 장비 가용','장비별 일자 데모 가용','')+`<div class="notif warn"><i class="bi bi-exclamation-triangle-fill"></i> 장비 데이터가 없습니다.</div></div>`;
   const N=21;const base=new Date(today()+'T00:00');const days=[];for(let i=0;i<N;i++){const d=new Date(base);d.setDate(d.getDate()+i);days.push(fmtDate(d));}
@@ -828,9 +849,9 @@ function viewAvail(){
   const th=`<th style="position:sticky;left:0;background:#eef2f6;z-index:3;min-width:120px;text-align:left">장비</th><th style="position:sticky;left:120px;background:#eef2f6;z-index:3;min-width:52px">보유</th>`+days.map(ds=>{const d=new Date(ds+'T00:00');const isT=ds===today();return `<th style="min-width:36px;text-align:center;${isT?'background:#dbeafe;color:#1d4ed8':''}">${d.getMonth()+1}/${d.getDate()}<div style="font-size:9px;color:${d.getDay()===0?'#dc2626':d.getDay()===6?'#2563eb':'#94a3b8'};font-weight:400">${wd[d.getDay()]}</div></th>`;}).join('');
   const rows=models.map(m=>{const fleet=fleetOf(m,days);const md=m.replace(/'/g,'');
     const cells=days.map(ds=>{const occ=occupiedOn(m,ds);const av=fleet-occ;const bg=av>0?'#dcfce7':av===0?'#fef3c7':'#fee2e2';const fg=av>0?'#15803d':av===0?'#b45309':'#dc2626';return `<td onclick="availCell('${md}','${ds}')" style="text-align:center;cursor:pointer;background:${bg};color:${fg};font-weight:700;font-variant-numeric:tabular-nums" title="가용 ${av}대 (데모중 ${occ})">${av}</td>`;}).join('');
-    return `<tr><td style="position:sticky;left:0;background:#fff;font-weight:700;color:var(--ink);white-space:nowrap">${esc(m)}</td><td style="position:sticky;left:120px;background:#fff;text-align:center"><input value="${fleet}" onchange="setFleet('${md}',this.value)" style="width:42px;text-align:center;border:1px solid var(--line);border-radius:6px;padding:3px" title="보유 대수(수정 가능)"></td>${cells}</tr>`;
+    return `<tr><td onclick="availToggle('${md}')" style="position:sticky;left:0;background:#fff;font-weight:700;color:var(--ink);white-space:nowrap;cursor:pointer" title="클릭 → 이 장비 개별 대수 현황 펼치기/접기"><i class="bi bi-chevron-${_availExp[md]?'down':'right'}" style="font-size:9px;color:#94a3b8;margin-right:5px"></i>${esc(m)}</td><td style="position:sticky;left:120px;background:#fff;text-align:center"><input value="${fleet}" onchange="setFleet('${md}',this.value)" style="width:42px;text-align:center;border:1px solid var(--line);border-radius:6px;padding:3px" title="보유 대수(수정 가능)"></td>${cells}</tr>`+(_availExp[md]?availDetail(m,fleet,days.length+2):'');
   }).join('')||'<tr><td colspan="23" style="text-align:center;color:var(--muted);padding:30px">데모 장비가 없습니다</td></tr>';
-  return head('🗓️ 장비 가용','장비별 일자 데모 가용 대수 · 셀 클릭 → 그날 데모 잡기 · 초록=가능/노랑=0/빨강=초과','')
+  return head('🗓️ 장비 가용','장비명 클릭 → 개별 대수 현황 · 셀 클릭 → 그날 데모 잡기 · 초록=가능/노랑=0/빨강=초과','')
     +`<div class="muted" style="font-size:12px;margin-bottom:10px">숫자 = 그날 <b>데모 가능 대수</b> (보유 − 데모중). 보유는 관측 최대 동시데모로 기본세팅 → 실제 보유(재고 포함)로 <b>보유칸 직접 수정</b>. 요청 오면 이 표에서 가능 날짜 한눈에 확인.</div>`
     +`<div class="card" style="padding:0;overflow:auto"><table style="border-collapse:separate;border-spacing:0"><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
