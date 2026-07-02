@@ -111,6 +111,9 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
       <a class="active" data-v="cal"><span class="ico">📅</span><span class="lbl">데모 캘린더</span></a>
       <a data-v="list"><span class="ico">📋</span><span class="lbl">목록 · 결과관리</span></a>
       <a data-v="stats"><span class="ico">📊</span><span class="lbl">통계</span></a>
+      <div class="grp" style="margin-top:14px">장비 관리</div>
+      <a data-v="elog"><span class="ico">📦</span><span class="lbl">출하 이력</span></a>
+      <a data-v="estat"><span class="ico">🖥️</span><span class="lbl">장비 현황</span></a>
     </nav>
     <div class="acct"><div class="row"><div class="av" id="uav">P</div><div style="flex:1;min-width:0"><div class="nm" id="unm">-</div><div class="em" id="uem">-</div></div></div>
       <div class="btns"><button onclick="changePw()"><i class="bi bi-key"></i> 비밀번호</button><button onclick="doLogout()"><i class="bi bi-box-arrow-right"></i> 로그아웃</button></div></div>
@@ -201,6 +204,7 @@ async function enter(user){
   DEMO=!!(probe&&probe.error);
   if(DEMO){document.getElementById('demo-banner').classList.remove('hidden');OWN=lsGet();if(!OWN.length&&(location.hostname==='localhost'||location.hostname==='127.0.0.1'))seedDemo();}
   else{const{data}=await _sb.from('demo_schedules').select('*').order('date');OWN=(data||[]).map(mapOwn);}
+  await loadEquip();
   afterLoad();
 }
 function afterLoad(){if(DEMO&&!SYNC.length)seedSync();if(!lastSeen())markSeenSilent();document.getElementById('boot-ov').style.display='none';document.getElementById('app').style.display='block';render();}
@@ -233,6 +237,7 @@ function today(){return new Date().toISOString().slice(0,10);}
 function all(){let a=SYNC.concat(OWN);if(fSales)a=a.filter(x=>x.sales===fSales);if(fStatus)a=a.filter(x=>x.status===fStatus);if(fBs)a=a.filter(x=>x.bs===fBs);return a;}
 function bsList(){return[...new Set(SYNC.concat(OWN).map(x=>x.bs).filter(Boolean))].sort();}
 function notifBar(){
+  if(curView==='elog'||curView==='estat')return'';
   const nw=OWN.filter(isNew).length;
   const overdue=all().filter(x=>x.status==='planned'&&x.date<today()).length;
   let h='';
@@ -249,7 +254,7 @@ function statusChip(s){const S=STATUS[s]||STATUS.planned;return `<span class="ch
 // ── 라우팅 ──
 function setView(v){curView=v;document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.v===v));render();window.scrollTo(0,0);}
 document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',()=>setView(a.dataset.v)));
-function render(){const v=document.getElementById('view');v.innerHTML=curView==='cal'?viewCal():curView==='list'?viewList():viewStats();}
+function render(){const v=document.getElementById('view');v.innerHTML=curView==='cal'?viewCal():curView==='list'?viewList():curView==='elog'?viewElog():curView==='estat'?viewEstat():viewStats();}
 function head(title,desc,actions){return `<div class="topbar"><div><h2>${title}</h2><div class="desc">${desc}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${actions||''}</div></div><div class="wrap">${notifBar()}`;}
 function filterBar(){const s=salesList();const bl=bsList();return `<select class="sel" onchange="fSales=this.value;render()"><option value="">담당 전체</option>${s.map(x=>`<option ${fSales===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`+
   (bl.length?`<select class="sel" onchange="fBs=this.value;render()"><option value="">운송(BS) 전체</option>${bl.map(x=>`<option ${fBs===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`:'')+
@@ -397,6 +402,96 @@ async function delEv(id){if(!confirm('이 데모 일정을 삭제할까요?'))re
   else{const{error}=await _sb.from('demo_schedules').delete().eq('id',id);if(error){toast('삭제 실패: '+error.message);return;}OWN=OWN.filter(x=>x.id!==id);}
   closeModal();render();toast('삭제됨');
 }
+
+// ═══════════ 장비 이력·현황 (equipment_moves) ═══════════
+let EMOVES=[],ENOTBL=false;
+let fEkind='',fEeq='',fEht='',fEq='';
+const EKINDS=['데모','납품','철수','교체','대체','기타','학회','교육','설치','출고','이전','이동'];
+const EKCOL={'데모':'#2563eb','납품':'#16a34a','철수':'#f59e0b','교체':'#8b5cf6','대체':'#0891b2','기타':'#94a3b8'};
+const EVEND=['유니메디랩','이지온메드','씽씽메디','에스비메디칼','드림메드','파로','faro','라이트스톤','메디칼','메드'];
+function eKcol(k){return EKCOL[k]||'#64748b';}
+function mapEq(r){return{id:r.id,seq:r.seq,start_date:r.start_date||'',end_date:r.end_date||'',kind:r.kind||'',equipment:r.equipment||'',serial:r.serial||'',hospital:r.hospital||'',address:r.address||'',handler:r.handler||'',handler_type:r.handler_type||'',note:r.note||''};}
+function clsHandler(v){v=(v||'').trim();if(!v)return'';const low=v.toLowerCase();for(const k of EVEND)if(low.indexOf(k.toLowerCase())>=0)return'운송';if(v==='CS'||v==='영업관리'||/물류|재고/.test(v))return'내부';return'영업';}
+async function loadEquip(){
+  if(DEMO){ENOTBL=true;EMOVES=[];return;}
+  try{const{data,error}=await _sb.from('equipment_moves').select('*').order('start_date',{ascending:false}).limit(6000);
+    if(error){ENOTBL=true;EMOVES=[];return;}ENOTBL=false;EMOVES=(data||[]).map(mapEq);
+  }catch(e){ENOTBL=true;EMOVES=[];}
+}
+function eDays(a,b){if(!a)return null;const d1=new Date(a+'T00:00'),d2=b?new Date(b+'T00:00'):new Date();return Math.round((d2-d1)/86400000);}
+function eOut(e){return(e.kind==='데모'||e.kind==='대체')&&(!e.end_date||e.end_date>=today());}
+function equipList(){return[...new Set(EMOVES.map(x=>x.equipment).filter(Boolean))].sort();}
+function eFilter(){let a=EMOVES;if(fEkind)a=a.filter(x=>x.kind===fEkind);if(fEeq)a=a.filter(x=>x.equipment===fEeq);if(fEht)a=a.filter(x=>x.handler_type===fEht);if(fEq){const q=fEq.toLowerCase();a=a.filter(x=>((x.hospital||'')+(x.serial||'')+(x.handler||'')+(x.equipment||'')+(x.note||'')).toLowerCase().indexOf(q)>=0);}return a;}
+function eKindChip(k){const c=eKcol(k);return `<span class="chip" style="background:${c}22;color:${c}"><span class="dot" style="background:${c}"></span>${esc(k)||'-'}</span>`;}
+function eHtTag(t){return t?` <span style="font-size:10px;font-weight:700;color:#475569;background:#eef2f7;border-radius:5px;padding:1px 5px;white-space:nowrap">${t}</span>`:'';}
+function eNoTblBanner(){return ENOTBL?`<div class="notif warn"><i class="bi bi-exclamation-triangle-fill"></i> 장비 테이블이 아직 없습니다 — <b>step_equipment_moves.sql</b> 실행 후 데이터 이관하면 활성화됩니다. <span class="muted">(지금은 조회·입력 불가)</span></div>`:'';}
+function eFilterBar(){const eqs=equipList();
+  return `<select class="sel" onchange="fEkind=this.value;render()"><option value="">종류 전체</option>${EKINDS.map(k=>`<option ${fEkind===k?'selected':''}>${k}</option>`).join('')}</select>`
+  +`<select class="sel" onchange="fEeq=this.value;render()"><option value="">장비 전체</option>${eqs.map(k=>`<option ${fEeq===k?'selected':''}>${esc(k)}</option>`).join('')}</select>`
+  +`<select class="sel" onchange="fEht=this.value;render()"><option value="">담당 전체</option>${['운송','영업','내부'].map(k=>`<option ${fEht===k?'selected':''}>${k}</option>`).join('')}</select>`
+  +`<input class="sel" style="width:170px" placeholder="🔍 병원·시리얼·담당" value="${esc(fEq)}" onchange="fEq=this.value;render()">`;}
+
+function viewElog(){
+  const A=eFilter().slice().sort((a,b)=>((b.start_date||'')+(b.id||'')).localeCompare((a.start_date||'')+(a.id||'')));
+  const cap=A.slice(0,400);
+  const rows=cap.length?cap.map(e=>`<tr onclick="openEq('${e.id}')">
+    <td style="white-space:nowrap">${e.start_date||'-'}${e.end_date?`<div class="muted" style="color:var(--muted);font-size:11px">~${e.end_date}</div>`:''}</td>
+    <td>${eKindChip(e.kind)}</td>
+    <td><b style="color:var(--ink)">${esc(e.equipment)||'-'}</b>${e.serial?` <span class="muted" style="color:var(--muted);font-size:11px">#${esc(e.serial)}</span>`:''}</td>
+    <td>${esc(e.hospital)||'-'}</td>
+    <td style="white-space:nowrap">${esc(e.handler)||'-'}${eHtTag(e.handler_type)}</td>
+    <td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.note)}</td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">데이터 없음</td></tr>';
+  return head('📦 출하 이력','데모·납품·철수·교체 장비 이동 대장 · 행 클릭 → 수정',eFilterBar()+(ENOTBL?'':`<button class="btn btn-primary" onclick="openEq()">+ 출하 추가</button>`))+eNoTblBanner()
+    +`<div class="muted" style="font-size:12px;margin-bottom:8px">${A.length.toLocaleString()}건${A.length>400?' 중 최근 400건 표시':''}</div>`
+    +`<div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>일자</th><th>종류</th><th>장비 / 시리얼</th><th>병원</th><th>담당</th><th>비고</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+
+function viewEstat(){
+  const out=EMOVES.filter(eOut).map(e=>Object.assign({},e,{dd:eDays(e.start_date)})).sort((a,b)=>(b.dd||0)-(a.dd||0));
+  const overdue=out.filter(e=>(e.dd||0)>60);
+  const ym=today().slice(0,7);
+  const delM=EMOVES.filter(e=>e.kind==='납품'&&(e.start_date||'').startsWith(ym)).length;
+  const retM=EMOVES.filter(e=>e.kind==='철수'&&((e.start_date||e.end_date||'')).startsWith(ym)).length;
+  const kpis=[{v:out.length,l:'현재 데모중(나가있는)'},{v:overdue.length,l:'60일↑ 장기 미회수',c:'var(--bad)'},{v:delM,l:'이번달 납품',c:'var(--ok)'},{v:retM,l:'이번달 철수'}];
+  const byE={};out.forEach(e=>{byE[e.equipment]=(byE[e.equipment]||0)+1;});
+  const eArr=Object.entries(byE).sort((a,b)=>b[1]-a[1]).slice(0,12);const maxE=Math.max(1,...eArr.map(x=>x[1]));
+  const outRows=out.slice(0,300).map(e=>`<tr onclick="openEq('${e.id}')" ${(e.dd||0)>60?'style="background:#fff5f5"':''}>
+    <td><b style="color:var(--ink)">${esc(e.equipment)||'-'}</b>${e.serial?` <span class="muted" style="color:var(--muted);font-size:11px">#${esc(e.serial)}</span>`:''}</td>
+    <td>${esc(e.hospital)||'-'}</td><td style="white-space:nowrap">${e.start_date||'-'}</td>
+    <td style="font-weight:700;color:${(e.dd||0)>60?'var(--bad)':(e.dd||0)>30?'#d97706':'var(--ink)'}">${e.dd!=null?e.dd+'일':'-'}</td>
+    <td style="white-space:nowrap">${esc(e.handler)||'-'}</td>
+    <td><button class="btn btn-sm" onclick="event.stopPropagation();retEq('${e.id}')" title="오늘자로 철수 처리">↩ 철수</button></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">나가있는 데모 장비가 없습니다</td></tr>';
+  return head('🖥️ 장비 현황','지금 나가있는 데모 장비 · 경과일 · 장기 미회수','')+eNoTblBanner()
+    +`<div class="grid kpis">${kpis.map(k=>`<div class="kpi"><div class="v" style="color:${k.c||'var(--ink)'}">${k.v}</div><div class="l">${k.l}</div></div>`).join('')}</div>`
+    +`<div class="card" style="margin-bottom:14px"><div class="sect"><span>📦 장비별 현재 데모중 (상위)</span></div>${eArr.map(([n,v])=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:130px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${v/maxE*100}%;background:var(--brand)"></i></div><b style="width:40px;text-align:right">${v}대</b></div>`).join('')||'<div style="color:var(--muted);padding:10px">없음</div>'}</div>`
+    +`<div class="card" style="padding:0;overflow:auto"><div class="sect" style="padding:14px 16px 4px"><span>현재 나가있는 데모 장비 <span class="muted" style="font-weight:400;font-size:11px">· 경과일 순 · 빨강=60일↑</span></span></div><table><thead><tr><th>장비 / 시리얼</th><th>병원</th><th>시작일</th><th>경과일</th><th>담당</th><th>액션</th></tr></thead><tbody>${outRows}</tbody></table></div></div>`;
+}
+
+function openEq(id){const e=id?EMOVES.find(x=>x.id===id):null;const v=e||{kind:'데모',equipment:'',serial:'',start_date:today(),end_date:'',hospital:'',address:'',handler:'',handler_type:'',note:''};const editing=!!e;const eqs=equipList();
+  document.getElementById('modal').innerHTML=`<div class="mh"><h3>${editing?'출하 수정':'출하 추가'}</h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="mb">
+      <div class="fr3"><div class="fld"><label>종류</label><select id="e-kind">${EKINDS.map(k=>`<option ${v.kind===k?'selected':''}>${k}</option>`).join('')}</select></div><div class="fld"><label>시작일</label><input id="e-start" type="date" value="${v.start_date||''}"></div><div class="fld"><label>철수/종료일</label><input id="e-end" type="date" value="${v.end_date||''}"></div></div>
+      <div class="fr"><div class="fld"><label>장비명</label><input id="e-eq" list="eqdl" value="${esc(v.equipment)}" placeholder="예: Oligio X"><datalist id="eqdl">${eqs.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div><div class="fld"><label>시리얼</label><input id="e-serial" value="${esc(v.serial)}" placeholder="예: #258"></div></div>
+      <div class="fld"><label>병원 / 거래처</label><input id="e-hosp" value="${esc(v.hospital)}" placeholder="예: 아비쥬의원 명동점"></div>
+      <div class="fld"><label>주소</label><input id="e-addr" value="${esc(v.address)}"></div>
+      <div class="fr"><div class="fld"><label>담당자</label><input id="e-handler" value="${esc(v.handler)}" placeholder="운송사 또는 영업" oninput="var s=document.getElementById('e-ht');if(!s.dataset.touched)s.value=clsHandler(this.value)"></div><div class="fld"><label>담당 구분</label><select id="e-ht" onchange="this.dataset.touched=1"><option value="">자동</option>${['운송','영업','내부'].map(k=>`<option ${v.handler_type===k?'selected':''}>${k}</option>`).join('')}</select></div></div>
+      <div class="fld"><label>비고</label><textarea id="e-note">${esc(v.note)}</textarea></div>
+    </div>
+    <div class="mf"><div>${editing?`<button class="btn" style="color:var(--bad)" onclick="delEq('${e.id}')">삭제</button>`:''}</div><div><button class="btn" onclick="closeModal()">취소</button><button class="btn btn-primary" onclick="saveEq('${editing?e.id:''}')">저장</button></div></div>`;
+  document.getElementById('mbg').style.display='flex';
+}
+async function saveEq(id){if(ENOTBL){toast('테이블 없음 — step_equipment_moves.sql 실행 필요');return;}
+  const g=x=>document.getElementById(x);const rec={kind:g('e-kind').value,equipment:g('e-eq').value.trim(),serial:g('e-serial').value.trim(),start_date:g('e-start').value||null,end_date:g('e-end').value||null,hospital:g('e-hosp').value.trim(),address:g('e-addr').value.trim(),handler:g('e-handler').value.trim(),handler_type:g('e-ht').value||clsHandler(g('e-handler').value),note:g('e-note').value.trim(),updated_at:nowISO()};
+  if(!rec.hospital&&!rec.equipment){toast('장비명 또는 병원을 입력하세요');return;}
+  let data,error;
+  if(id){({data,error}=await _sb.from('equipment_moves').update(rec).eq('id',id).select().single());}
+  else{rec.created_by=ME;({data,error}=await _sb.from('equipment_moves').insert(rec).select().single());}
+  if(error){toast('저장 실패: '+error.message);return;}
+  const m=mapEq(data);const i=EMOVES.findIndex(x=>x.id===m.id);if(i>=0)EMOVES[i]=m;else EMOVES.unshift(m);
+  closeModal();render();toast('저장됨 ✓');
+}
+async function delEq(id){if(!confirm('이 출하 이력을 삭제할까요?'))return;const{error}=await _sb.from('equipment_moves').delete().eq('id',id);if(error){toast('삭제 실패: '+error.message);return;}EMOVES=EMOVES.filter(x=>x.id!==id);closeModal();render();toast('삭제됨');}
+async function retEq(id){const e=EMOVES.find(x=>x.id===id);if(!e)return;if(!confirm(e.hospital+' · '+e.equipment+' 을(를) 오늘자로 철수 처리할까요?'))return;const{data,error}=await _sb.from('equipment_moves').update({end_date:today(),updated_at:nowISO()}).eq('id',id).select().single();if(error){toast('실패: '+error.message);return;}const m=mapEq(data);const i=EMOVES.findIndex(x=>x.id===id);if(i>=0)EMOVES[i]=m;render();toast('철수 처리됨 ✓');}
 
 boot();
 </script>
