@@ -198,8 +198,8 @@ function salesList(){return[...new Set(all().map(x=>x.sales).filter(Boolean))].s
 function statusChip(s){const S=STATUS[s]||STATUS.planned;return `<span class="chip" style="background:${S.c}22;color:${S.c}"><span class="dot" style="background:${S.c}"></span>${S.n}</span>`;}
 
 // ── 라우팅 ──
-function setView(v){curView=v;document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('active',a.dataset.v===v));render();window.scrollTo(0,0);}
-document.querySelectorAll('#nav a').forEach(a=>a.addEventListener('click',()=>setView(a.dataset.v)));
+function setView(v){curView=v;document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.v===v));render();window.scrollTo(0,0);}
+document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',()=>setView(a.dataset.v)));
 function render(){const v=document.getElementById('view');v.innerHTML=curView==='cal'?viewCal():curView==='list'?viewList():viewStats();}
 function head(title,desc,actions){return `<div class="topbar"><div><h2>${title}</h2><div class="desc">${desc}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${actions||''}</div></div><div class="wrap">`;}
 function filterBar(){const s=salesList();return `<select class="sel" onchange="fSales=this.value;render()"><option value="">담당 전체</option>${s.map(x=>`<option ${fSales===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`+
