@@ -114,6 +114,7 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
       <div class="grp" style="margin-top:14px">장비 관리</div>
       <a data-v="elog"><span class="ico">📦</span><span class="lbl">출하 이력</span></a>
       <a data-v="estat"><span class="ico">🖥️</span><span class="lbl">장비 현황</span></a>
+      <a data-v="eana"><span class="ico">📊</span><span class="lbl">출하 분석</span></a>
     </nav>
     <div class="acct"><div class="row"><div class="av" id="uav">P</div><div style="flex:1;min-width:0"><div class="nm" id="unm">-</div><div class="em" id="uem">-</div></div></div>
       <div class="btns"><button onclick="changePw()"><i class="bi bi-key"></i> 비밀번호</button><button onclick="doLogout()"><i class="bi bi-box-arrow-right"></i> 로그아웃</button></div></div>
@@ -237,7 +238,7 @@ function today(){return new Date().toISOString().slice(0,10);}
 function all(){let a=SYNC.concat(OWN);if(fSales)a=a.filter(x=>x.sales===fSales);if(fStatus)a=a.filter(x=>x.status===fStatus);if(fBs)a=a.filter(x=>x.bs===fBs);return a;}
 function bsList(){return[...new Set(SYNC.concat(OWN).map(x=>x.bs).filter(Boolean))].sort();}
 function notifBar(){
-  if(curView==='elog'||curView==='estat')return'';
+  if(curView==='elog'||curView==='estat'||curView==='eana')return'';
   const nw=OWN.filter(isNew).length;
   const overdue=all().filter(x=>x.status==='planned'&&x.date<today()).length;
   let h='';
@@ -254,7 +255,7 @@ function statusChip(s){const S=STATUS[s]||STATUS.planned;return `<span class="ch
 // ── 라우팅 ──
 function setView(v){curView=v;document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.v===v));render();window.scrollTo(0,0);}
 document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',()=>setView(a.dataset.v)));
-function render(){const v=document.getElementById('view');v.innerHTML=curView==='cal'?viewCal():curView==='list'?viewList():curView==='elog'?viewElog():curView==='estat'?viewEstat():viewStats();}
+function render(){const v=document.getElementById('view');v.innerHTML=curView==='cal'?viewCal():curView==='list'?viewList():curView==='elog'?viewElog():curView==='estat'?viewEstat():curView==='eana'?viewEana():viewStats();}
 function head(title,desc,actions){return `<div class="topbar"><div><h2>${title}</h2><div class="desc">${desc}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${actions||''}</div></div><div class="wrap">${notifBar()}`;}
 function filterBar(){const s=salesList();const bl=bsList();return `<select class="sel" onchange="fSales=this.value;render()"><option value="">담당 전체</option>${s.map(x=>`<option ${fSales===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`+
   (bl.length?`<select class="sel" onchange="fBs=this.value;render()"><option value="">운송(BS) 전체</option>${bl.map(x=>`<option ${fBs===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`:'')+
@@ -267,8 +268,8 @@ function calToday(){refDate=new Date();render();}
 function viewCal(){
   const seg=`<div class="seg"><button class="${calMode==='week'?'on':''}" onclick="setCalMode('week')">주간</button><button class="${calMode==='month'?'on':''}" onclick="setCalMode('month')">월간</button></div>`;
   const nav=`<button class="btn btn-sm" onclick="calNav(-1)"><i class="bi bi-chevron-left"></i></button><button class="btn btn-sm" onclick="calToday()">오늘</button><button class="btn btn-sm" onclick="calNav(1)"><i class="bi bi-chevron-right"></i></button>`;
-  const actions=seg+filterBar()+nav+`<button class="btn btn-primary" onclick="openModal()">+ 데모 추가</button>`;
-  const legend=`<div class="legend">${Object.keys(STATUS).map(k=>`<span><span class="dot" style="background:${STATUS[k].c}"></span> ${STATUS[k].n}</span>`).join('')}<span style="margin-left:auto"><span class="syncbadge">연동</span> 한국영업 · 나머지 직접입력</span></div>`;
+  const actions=seg+filterBar()+`<button class="btn btn-sm" onclick="toggleShip()" title="캘린더에 장비 출하 표시" style="${showShip?'background:#2563eb;color:#fff;border-color:#2563eb':''}">📦 출하</button>`+nav+`<button class="btn btn-primary" onclick="openModal()">+ 데모 추가</button>`;
+  const legend=`<div class="legend">${Object.keys(STATUS).map(k=>`<span><span class="dot" style="background:${STATUS[k].c}"></span> ${STATUS[k].n}</span>`).join('')}<span style="color:var(--muted)">📦 출하(데모·납품·철수)</span><span style="margin-left:auto"><span class="syncbadge">연동</span> 한국영업 · 나머지 직접입력</span></div>`;
   return head('📅 데모 일정','누가 언제 어디서 데모하는지 · 한국영업 데모 자동 연동',actions)+legend+(calMode==='week'?calWeek():calMonth())+'</div>';
 }
 function evCard(e){const pk=packed(e);return `<div class="ev" style="border-left-color:${(STATUS[e.status]||STATUS.planned).c}" onclick="event.stopPropagation();openView('${e.id}')">
@@ -281,12 +282,12 @@ function calWeek(){
   const dn=['월','화','수','목','금','토','일'];
   return `<div class="wk">${days.map((d,i)=>{const ds=fmtDate(d);const evs=byDate(ds);const isT=ds===today();
     return `<div class="wkcol ${isT?'today':''}"><div class="wkhd ${i===6?'sun':i===5?'sat':''}"><span>${dn[i]} ${d.getDate()}일${isT?' <span style="color:#2563eb">●</span>':''}</span><span style="color:var(--muted);font-weight:500">${evs.length||''}</span></div>
-      <div class="wkbody" onclick="openModal({date:'${ds}'})">${evs.map(evCard).join('')}</div></div>`;}).join('')}</div>`;
+      <div class="wkbody" onclick="openModal({date:'${ds}'})">${evs.map(evCard).join('')}${showShip?eByDate(ds).map(eEvCard).join(''):''}</div></div>`;}).join('')}</div>`;
 }
 function calMonth(){
   const y=refDate.getFullYear(),m=refDate.getMonth();const first=new Date(y,m,1);const start=weekStart(first);const dn=['월','화','수','목','금','토','일'];
   let cells='';for(let i=0;i<42;i++){const d=new Date(start);d.setDate(d.getDate()+i);const ds=fmtDate(d);const other=d.getMonth()!==m;const isT=ds===today();const evs=byDate(ds);
-    cells+=`<div class="mcell ${isT?'today':''} ${other?'other':''}" onclick="openModal({date:'${ds}'})"><div class="dn">${d.getDate()}</div>${evs.slice(0,4).map(e=>`<div class="mev" style="background:${(STATUS[e.status]||STATUS.planned).c}" onclick="event.stopPropagation();openView('${e.id}')">${e.time?e.time+' ':''}${esc(e.cust).slice(0,10)}</div>`).join('')}${evs.length>4?`<div style="font-size:10px;color:var(--muted)">+${evs.length-4}</div>`:''}</div>`;}
+    cells+=`<div class="mcell ${isT?'today':''} ${other?'other':''}" onclick="openModal({date:'${ds}'})"><div class="dn">${d.getDate()}</div>${evs.slice(0,4).map(e=>`<div class="mev" style="background:${(STATUS[e.status]||STATUS.planned).c}" onclick="event.stopPropagation();openView('${e.id}')">${e.time?e.time+' ':''}${esc(e.cust).slice(0,10)}</div>`).join('')}${showShip?eByDate(ds).slice(0,3).map(e=>`<div class="mev" style="background:${eKcol(e.kind)}" onclick="event.stopPropagation();openEq('${e.id}')" title="${esc(e.equipment+' · '+e.hospital)}">📦${esc(e.equipment).slice(0,8)}</div>`).join(''):''}${evs.length>4?`<div style="font-size:10px;color:var(--muted)">+${evs.length-4}</div>`:''}</div>`;}
   return `<div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:10px">${y}년 ${m+1}월</div><div class="mgrid">${dn.map(x=>`<div class="mh">${x}</div>`).join('')}${cells}</div>`;
 }
 
@@ -374,6 +375,7 @@ function openModal(pre){pre=pre||{};const e=pre.id?pre:{date:pre.date||today(),t
       <div class="fld"><label>메모</label><textarea id="f-note">${esc(e.content)}</textarea></div>
       <div class="fld"><label>결과 / 피드백 (완료 후)</label><textarea id="f-outcome" placeholder="반응·관심도·수주가능성 등">${esc(e.outcome)}</textarea></div>
       <div class="fld"><label>후속 액션</label><input id="f-follow" value="${esc(e.follow_up)}" placeholder="예: 견적 발송 / 재데모 일정"></div>
+      ${(function(){const rel=relatedShip(e.cust);if(!rel.length)return'';return `<div class="fld"><label>🔗 관련 출하 이력 <span style="font-weight:400;color:var(--muted);font-size:11px">(같은 병원 · 장비 이동)</span></label>${rel.map(s=>`<div style="display:flex;gap:8px;align-items:center;padding:4px 0;font-size:12.5px"><span style="color:var(--muted);width:78px;flex-shrink:0">${s.start_date||'-'}</span>${eKindChip(s.kind)}<b style="color:var(--ink)">${esc(s.equipment)}</b>${s.serial?`<span style="color:var(--muted);font-size:11px">#${esc(s.serial)}</span>`:''}</div>`).join('')}</div>`;})()}
     </div>
     <div class="mf"><div>${editing?`<button class="btn" style="color:var(--bad)" onclick="delEv('${e.id}')">삭제</button>`:''}</div><div><button class="btn" onclick="closeModal()">취소</button><button class="btn btn-primary" onclick="saveEv('${editing?e.id:''}')">저장</button></div></div>`;
   document.getElementById('mbg').style.display='flex';
@@ -437,11 +439,11 @@ function viewElog(){
   const rows=cap.length?cap.map(e=>`<tr onclick="openEq('${e.id}')">
     <td style="white-space:nowrap">${e.start_date||'-'}${e.end_date?`<div class="muted" style="color:var(--muted);font-size:11px">~${e.end_date}</div>`:''}</td>
     <td>${eKindChip(e.kind)}</td>
-    <td><b style="color:var(--ink)">${esc(e.equipment)||'-'}</b>${e.serial?` <span class="muted" style="color:var(--muted);font-size:11px">#${esc(e.serial)}</span>`:''}</td>
+    <td><b style="color:var(--ink)">${esc(e.equipment)||'-'}</b>${eSerialTag(e.serial)}</td>
     <td>${esc(e.hospital)||'-'}</td>
     <td style="white-space:nowrap">${esc(e.handler)||'-'}${eHtTag(e.handler_type)}</td>
     <td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.note)}</td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">데이터 없음</td></tr>';
-  return head('📦 출하 이력','데모·납품·철수·교체 장비 이동 대장 · 행 클릭 → 수정',eFilterBar()+(ENOTBL?'':`<button class="btn btn-primary" onclick="openEq()">+ 출하 추가</button>`))+eNoTblBanner()
+  return head('📦 출하 이력','데모·납품·철수·교체 장비 이동 대장 · 행 클릭 → 수정',eFilterBar()+(ENOTBL?'':`<button class="btn btn-primary" onclick="openEq()">+ 출하 추가</button>`))+eNoTblBanner()+eOverdueBanner()
     +`<div class="muted" style="font-size:12px;margin-bottom:8px">${A.length.toLocaleString()}건${A.length>400?' 중 최근 400건 표시':''}</div>`
     +`<div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>일자</th><th>종류</th><th>장비 / 시리얼</th><th>병원</th><th>담당</th><th>비고</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
@@ -456,12 +458,12 @@ function viewEstat(){
   const byE={};out.forEach(e=>{byE[e.equipment]=(byE[e.equipment]||0)+1;});
   const eArr=Object.entries(byE).sort((a,b)=>b[1]-a[1]).slice(0,12);const maxE=Math.max(1,...eArr.map(x=>x[1]));
   const outRows=out.slice(0,300).map(e=>`<tr onclick="openEq('${e.id}')" ${(e.dd||0)>60?'style="background:#fff5f5"':''}>
-    <td><b style="color:var(--ink)">${esc(e.equipment)||'-'}</b>${e.serial?` <span class="muted" style="color:var(--muted);font-size:11px">#${esc(e.serial)}</span>`:''}</td>
+    <td><b style="color:var(--ink)">${esc(e.equipment)||'-'}</b>${eSerialTag(e.serial)}</td>
     <td>${esc(e.hospital)||'-'}</td><td style="white-space:nowrap">${e.start_date||'-'}</td>
     <td style="font-weight:700;color:${(e.dd||0)>60?'var(--bad)':(e.dd||0)>30?'#d97706':'var(--ink)'}">${e.dd!=null?e.dd+'일':'-'}</td>
     <td style="white-space:nowrap">${esc(e.handler)||'-'}</td>
     <td><button class="btn btn-sm" onclick="event.stopPropagation();retEq('${e.id}')" title="오늘자로 철수 처리">↩ 철수</button></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">나가있는 데모 장비가 없습니다</td></tr>';
-  return head('🖥️ 장비 현황','지금 나가있는 데모 장비 · 경과일 · 장기 미회수','')+eNoTblBanner()
+  return head('🖥️ 장비 현황','지금 나가있는 데모 장비 · 경과일 · 장기 미회수','')+eNoTblBanner()+eOverdueBanner()
     +`<div class="grid kpis">${kpis.map(k=>`<div class="kpi"><div class="v" style="color:${k.c||'var(--ink)'}">${k.v}</div><div class="l">${k.l}</div></div>`).join('')}</div>`
     +`<div class="card" style="margin-bottom:14px"><div class="sect"><span>📦 장비별 현재 데모중 (상위)</span></div>${eArr.map(([n,v])=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:130px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${v/maxE*100}%;background:var(--brand)"></i></div><b style="width:40px;text-align:right">${v}대</b></div>`).join('')||'<div style="color:var(--muted);padding:10px">없음</div>'}</div>`
     +`<div class="card" style="padding:0;overflow:auto"><div class="sect" style="padding:14px 16px 4px"><span>현재 나가있는 데모 장비 <span class="muted" style="font-weight:400;font-size:11px">· 경과일 순 · 빨강=60일↑</span></span></div><table><thead><tr><th>장비 / 시리얼</th><th>병원</th><th>시작일</th><th>경과일</th><th>담당</th><th>액션</th></tr></thead><tbody>${outRows}</tbody></table></div></div>`;
@@ -476,8 +478,9 @@ function openEq(id){const e=id?EMOVES.find(x=>x.id===id):null;const v=e||{kind:'
       <div class="fld"><label>주소</label><input id="e-addr" value="${esc(v.address)}"></div>
       <div class="fr"><div class="fld"><label>담당자</label><input id="e-handler" value="${esc(v.handler)}" placeholder="운송사 또는 영업" oninput="var s=document.getElementById('e-ht');if(!s.dataset.touched)s.value=clsHandler(this.value)"></div><div class="fld"><label>담당 구분</label><select id="e-ht" onchange="this.dataset.touched=1"><option value="">자동</option>${['운송','영업','내부'].map(k=>`<option ${v.handler_type===k?'selected':''}>${k}</option>`).join('')}</select></div></div>
       <div class="fld"><label>비고</label><textarea id="e-note">${esc(v.note)}</textarea></div>
+      ${(function(){const rel=relatedDemo(v.hospital);if(!rel.length)return'';return `<div class="fld"><label>🔗 관련 데모 일정 <span style="font-weight:400;color:var(--muted);font-size:11px">(같은 병원)</span></label>${rel.map(x=>`<div style="display:flex;gap:8px;align-items:center;padding:4px 0;font-size:12.5px"><span style="color:var(--muted);width:78px;flex-shrink:0">${x.date}</span><b style="color:var(--ink)">${esc(x.cust)}</b>${x.product?`<span style="color:#0891b2">${esc(x.product)}</span>`:''}${x.source==='wontech'?'<span class="syncbadge">연동</span>':''}</div>`).join('')}</div>`;})()}
     </div>
-    <div class="mf"><div>${editing?`<button class="btn" style="color:var(--bad)" onclick="delEq('${e.id}')">삭제</button>`:''}</div><div><button class="btn" onclick="closeModal()">취소</button><button class="btn btn-primary" onclick="saveEq('${editing?e.id:''}')">저장</button></div></div>`;
+    <div class="mf"><div>${editing?`<button class="btn" style="color:var(--bad)" onclick="delEq('${e.id}')">삭제</button>`:''}${v.serial?` <button class="btn" onclick="openTimeline('${esc(String(v.serial).replace(/'/g,''))}')">📜 이력</button>`:''}</div><div><button class="btn" onclick="closeModal()">취소</button><button class="btn btn-primary" onclick="saveEq('${editing?e.id:''}')">저장</button></div></div>`;
   document.getElementById('mbg').style.display='flex';
 }
 async function saveEq(id){if(ENOTBL){toast('테이블 없음 — step_equipment_moves.sql 실행 필요');return;}
@@ -492,6 +495,56 @@ async function saveEq(id){if(ENOTBL){toast('테이블 없음 — step_equipment_
 }
 async function delEq(id){if(!confirm('이 출하 이력을 삭제할까요?'))return;const{error}=await _sb.from('equipment_moves').delete().eq('id',id);if(error){toast('삭제 실패: '+error.message);return;}EMOVES=EMOVES.filter(x=>x.id!==id);closeModal();render();toast('삭제됨');}
 async function retEq(id){const e=EMOVES.find(x=>x.id===id);if(!e)return;if(!confirm(e.hospital+' · '+e.equipment+' 을(를) 오늘자로 철수 처리할까요?'))return;const{data,error}=await _sb.from('equipment_moves').update({end_date:today(),updated_at:nowISO()}).eq('id',id).select().single();if(error){toast('실패: '+error.message);return;}const m=mapEq(data);const i=EMOVES.findIndex(x=>x.id===id);if(i>=0)EMOVES[i]=m;render();toast('철수 처리됨 ✓');}
+
+// ④ 장기 미회수 노티
+function eOverdueList(){return EMOVES.filter(e=>eOut(e)&&(eDays(e.start_date)||0)>60).sort((a,b)=>(eDays(b.start_date)||0)-(eDays(a.start_date)||0));}
+function eOverdueBanner(){const o=eOverdueList();if(!o.length||ENOTBL)return'';const top=o.slice(0,3).map(e=>esc(e.equipment)+(e.serial?' #'+esc(e.serial):'')+' @'+esc(e.hospital)+' ('+eDays(e.start_date)+'일)').join(' · ');return `<div class="notif warn"><i class="bi bi-hourglass-split"></i> 장기 미회수 데모 <b>${o.length}건</b> (60일↑) <span class="muted">${top}${o.length>3?' 외':''}</span><button onclick="setView('estat')">보기</button></div>`;}
+
+// ① 캘린더 출하 통합
+let showShip=true;
+function toggleShip(){showShip=!showShip;render();}
+function eByDate(ds){return EMOVES.filter(e=>e.start_date===ds).sort((a,b)=>(a.kind||'').localeCompare(b.kind||''));}
+function eEvCard(e){const c=eKcol(e.kind);return `<div class="ev" style="border-left-color:${c};background:${c}0f" onclick="event.stopPropagation();openEq('${e.id}')">
+  <div class="t1"><span style="font-size:11px">📦</span>${eKindChip(e.kind)}</div>
+  <div class="cust">${esc(e.equipment)||'-'}${e.serial?' <span style="font-size:10px;color:var(--muted)">#'+esc(e.serial)+'</span>':''}</div>
+  <div class="meta">${esc(e.hospital)}${e.handler?' · '+esc(e.handler):''}</div></div>`;}
+
+// ② 시리얼 타임라인
+function openTimeline(serial){serial=String(serial||'').trim();if(!serial)return;
+  const list=EMOVES.filter(e=>String(e.serial||'').trim()===serial).sort((a,b)=>(a.start_date||'').localeCompare(b.start_date||''));
+  const rows=list.map(e=>`<div class="mv"><span style="width:9px;height:9px;border-radius:2px;background:${eKcol(e.kind)};flex-shrink:0"></span><span style="width:150px;font-size:12px;color:var(--muted);flex-shrink:0">${e.start_date||'-'}${e.end_date?' ~'+e.end_date:''}</span><span style="flex-shrink:0">${eKindChip(e.kind)}</span><span class="nm">${esc(e.hospital)||'-'}</span><span class="mut" style="font-size:11px;color:var(--muted)">${esc(e.handler)}</span></div>`).join('');
+  document.getElementById('modal').innerHTML=`<div class="mh"><h3>🖥️ #${esc(serial)} 이력 <span class="muted" style="font-size:12px;font-weight:500">${list.length}건 · ${esc((list[0]||{}).equipment||'')}</span></h3><button class="x" onclick="closeModal()">×</button></div><div class="mb">${rows||'<div class="muted">이력 없음</div>'}</div><div class="mf"><div></div><button class="btn" onclick="closeModal()">닫기</button></div>`;
+  document.getElementById('mbg').style.display='flex';
+}
+function eSerialTag(s){if(!s)return'';const sv=String(s).replace(/'/g,'');return ` <span onclick="event.stopPropagation();openTimeline('${esc(sv)}')" style="color:#2563eb;font-size:11px;cursor:pointer;text-decoration:underline dotted" title="시리얼 이력">#${esc(s)}</span>`;}
+
+// ⑤ 데모↔출하 매칭 (병원명 정규화 후 부분일치)
+function hnorm(s){return String(s||'').replace(/[\s()（）\[\]·,.]/g,'').toLowerCase();}
+function relatedShip(cust){const c=hnorm(cust);if(!c)return[];return EMOVES.filter(e=>{const h=hnorm(e.hospital);return h&&(h.indexOf(c)>=0||c.indexOf(h)>=0);}).sort((a,b)=>(b.start_date||'').localeCompare(a.start_date||'')).slice(0,8);}
+function relatedDemo(hospital){const c=hnorm(hospital);if(!c)return[];return SYNC.concat(OWN).filter(x=>{const h=hnorm(x.cust);return h&&(h.indexOf(c)>=0||c.indexOf(h)>=0);}).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,6);}
+
+// ③ 출하 분석
+function viewEana(){
+  const A=EMOVES;
+  const demoKeys={},buyKeys={};
+  A.forEach(e=>{const key=hnorm(e.hospital)+'|'+(e.equipment||'');if(e.kind==='데모'&&e.hospital)demoKeys[key]=1;if(e.kind==='납품'&&e.hospital)buyKeys[key]=1;});
+  const demoN=Object.keys(demoKeys).length;let conv=0;Object.keys(demoKeys).forEach(k=>{if(buyKeys[k])conv++;});
+  const convRate=demoN?Math.round(conv/demoN*100):0;
+  const byH={};A.forEach(e=>{if(e.handler_type==='운송'&&e.handler)byH[e.handler]=(byH[e.handler]||0)+1;});
+  const hArr=Object.entries(byH).sort((a,b)=>b[1]-a[1]).slice(0,10);const maxH=Math.max(1,...hArr.map(x=>x[1]));
+  const byHo={};A.forEach(e=>{if(e.hospital)byHo[e.hospital]=(byHo[e.hospital]||0)+1;});
+  const hoArr=Object.entries(byHo).sort((a,b)=>b[1]-a[1]).slice(0,12);const maxHo=Math.max(1,...hoArr.map(x=>x[1]));
+  const byK={};A.forEach(e=>{if(e.kind)byK[e.kind]=(byK[e.kind]||0)+1;});
+  const kArr=Object.entries(byK).sort((a,b)=>b[1]-a[1]);const maxK=Math.max(1,...kArr.map(x=>x[1]));
+  const kpis=[{v:A.length.toLocaleString(),l:'총 출하 이력'},{v:conv+' / '+demoN,l:'데모→납품 (병원·장비)',c:'var(--ok)'},{v:convRate+'%',l:'데모 전환율',c:'var(--brand)'},{v:Object.keys(byHo).length.toLocaleString(),l:'거래 병원수'}];
+  return head('📊 출하 분석','데모→납품 전환 · 운송사 · 병원별','')+eNoTblBanner()+eOverdueBanner()
+    +`<div class="grid kpis">${kpis.map(k=>`<div class="kpi"><div class="v" style="color:${k.c||'var(--ink)'}">${k.v}</div><div class="l">${k.l}</div></div>`).join('')}</div>`
+    +`<div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:14px">
+       <div class="card"><div class="sect"><span>🚚 운송사별 출하</span></div>${hArr.map(([n,v])=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:120px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${v/maxH*100}%;background:#0f766e"></i></div><b style="width:44px;text-align:right">${v}</b></div>`).join('')||'<div class="muted" style="padding:10px">없음</div>'}</div>
+       <div class="card"><div class="sect"><span>🎯 종류 분포</span></div>${kArr.map(([n,v])=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:70px">${eKindChip(n)}</div><div class="bar" style="flex:1"><i style="width:${v/maxK*100}%;background:${eKcol(n)}"></i></div><b style="width:44px;text-align:right">${v}</b></div>`).join('')}</div>
+     </div>
+     <div class="card"><div class="sect"><span>🏥 병원별 이력 (상위)</span></div>${hoArr.map(([n,v])=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:200px;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${v/maxHo*100}%;background:var(--brand)"></i></div><b style="width:40px;text-align:right">${v}</b></div>`).join('')||'<div class="muted" style="padding:10px">없음</div>'}</div></div>`;
+}
 
 boot();
 </script>
