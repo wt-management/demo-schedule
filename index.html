@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>wontech</title>
+<title>장비 통합관리</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -295,7 +295,7 @@ document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',()=>se
 let _drill={},_dseq=0;
 function reg(arr){const k='d'+(_dseq++);_drill[k]=arr||[];return k;}
 function openRecsK(k,title,note){openRecs(title,_drill[k]||[],note);}
-function render(){_drill={};_dseq=0;_tiv=[];const v=document.getElementById('view');v.innerHTML=curView==='home'?viewHome():curView==='clinic'?viewClinic():curView==='cal'?viewCal():curView==='list'?viewList():curView==='elog'?viewElog():curView==='estat'?viewEstat():curView==='avail'?viewAvail():curView==='gantt'?viewGantt():curView==='eana'?viewEana():curView==='inv'?viewInv():curView==='stock'?viewStock():curView==='tiwork'?viewTiWork():curView==='tilist'?viewTiList():curView==='tirefurb'?viewTiRefurb():viewStats();tiBadge();homeBadge();}
+function render(){_drill={};_dseq=0;_tiv=[];_mcMap=null;const v=document.getElementById('view');v.innerHTML=curView==='home'?viewHome():curView==='clinic'?viewClinic():curView==='cal'?viewCal():curView==='list'?viewList():curView==='elog'?viewElog():curView==='estat'?viewEstat():curView==='avail'?viewAvail():curView==='gantt'?viewGantt():curView==='eana'?viewEana():curView==='inv'?viewInv():curView==='stock'?viewStock():curView==='tiwork'?viewTiWork():curView==='tilist'?viewTiList():curView==='tirefurb'?viewTiRefurb():viewStats();tiBadge();homeBadge();}
 function head(title,desc,actions){return `<div class="topbar"><div><h2>${title}</h2><div class="desc">${desc}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${actions||''}</div></div><div class="wrap">${notifBar()}`;}
 function filterBar(){const s=salesList();const bl=bsList();return `<select class="sel" onchange="fSales=this.value;render()"><option value="">담당 전체</option>${s.map(x=>`<option ${fSales===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`+
   (bl.length?`<select class="sel" onchange="fBs=this.value;render()"><option value="">운송(BS) 전체</option>${bl.map(x=>`<option ${fBs===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`:'')+
@@ -475,6 +475,9 @@ const EKINDS=['데모','납품','철수','교체','대체','기타','학회','�
 const EKCOL={'데모':'#2563eb','납품':'#16a34a','철수':'#f59e0b','교체':'#8b5cf6','대체':'#0891b2','기타':'#94a3b8'};
 const EVEND=['유니메디랩','이지온메드','씽씽메디','에스비메디칼','드림메드','파로','faro','라이트스톤','메디칼','메드'];
 function eKcol(k){return EKCOL[k]||'#64748b';}
+const MPAL=['#2563eb','#0891b2','#0d9488','#16a34a','#65a30d','#ca8a04','#ea580c','#dc2626','#db2777','#9333ea','#7c3aed','#4f46e5','#0369a1','#047857','#b45309','#be123c','#0284c7','#15803d','#a21caf','#c2410c'];
+let _mcMap=null;  // 제품군별 고유색: 정렬된 제품목록에 팔레트 순차 배정(인접 겹침 최소화)
+function modelColor(m){if(!_mcMap){_mcMap={};[...new Set(EMOVES.map(x=>x.equipment).filter(Boolean))].sort().forEach((mm,i)=>{_mcMap[mm]=MPAL[i%MPAL.length];});}return _mcMap[String(m||'')]||'#64748b';}
 function mapEq(r){return{id:r.id,seq:r.seq,start_date:r.start_date||'',end_date:r.end_date||'',kind:r.kind||'',equipment:r.equipment||'',serial:r.serial||'',hospital:r.hospital||'',address:r.address||'',handler:r.handler||'',handler_type:r.handler_type||'',sales_rep:r.sales_rep||'',transport1:r.transport1||'',transport2:r.transport2||'',note:r.note||''};}
 function clsHandler(v){v=(v||'').trim();if(!v)return'';const low=v.toLowerCase();for(const k of EVEND)if(low.indexOf(k.toLowerCase())>=0)return'운송';if(v==='CS'||v==='영업관리'||/물류|재고/.test(v))return'내부';return'영업';}
 async function loadEquip(){
@@ -1231,7 +1234,7 @@ function viewGantt(){
   function barCells(r){const segs=[];let i=0;while(i<N){const sp=covAt(r,days[i]);const mid=sp?sp.m.id:null;let j=i+1;while(j<N){const s2=covAt(r,days[j]);if((s2?s2.m.id:null)!==mid)break;j++;}segs.push({sp,len:j-i});i=j;}
     return segs.map(g=>{
       if(!g.sp)return `<td colspan="${g.len}" style="border-right:1px solid #f3f4f6"></td>`;
-      const m=g.sp.m,c=eKcol(m.kind);
+      const m=g.sp.m,c=modelColor(m.equipment),kc=eKcol(m.kind);  // 막대=제품색, 종류는 칩색
       const ongoing=!m.end_date&&(m.kind==='데모'||m.kind==='대체'||m.kind==='교체');
       const openL=(m.start_date||'')<winStart,openR=ongoing||(!!m.end_date&&m.end_date>winEnd);
       const rad=`${openL?'0':'7px'} ${openR?'0':'7px'} ${openR?'0':'7px'} ${openL?'0':'7px'}`;
@@ -1243,7 +1246,7 @@ function viewGantt(){
         +`<b style="color:#0f172a;overflow:hidden;text-overflow:ellipsis">${esc(m.hospital||m.kind)}</b>`
         +`${g.len>=5?`<span style="color:${c};font-size:9.5px;font-weight:700;flex-shrink:0">${esc(range)}</span>`:''}`
         +`${g.len>=8&&m.handler?`<span style="color:#64748b;font-size:9.5px;flex-shrink:0">· 👤${esc(m.handler)}</span>`:''}`
-        +`${g.len>=12?`<span style="background:${c}22;color:${c};font-size:9px;font-weight:700;border-radius:4px;padding:0 5px;flex-shrink:0">${esc(m.kind)}</span>`:''}`
+        +`${g.len>=12?`<span style="background:${kc}22;color:${kc};font-size:9px;font-weight:700;border-radius:4px;padding:0 5px;flex-shrink:0">${esc(m.kind)}</span>`:''}`
         +`${openR?'<span style="margin-left:auto;color:'+c+';flex-shrink:0">▶</span>':''}`
         +`</div></td>`;
     }).join('');}
@@ -1260,7 +1263,7 @@ function viewGantt(){
     const short=gr.filter(x=>!x.d.isLong).sort((a,b)=>a.d.days-b.d.days);
     const long=gr.filter(x=>x.d.isLong).sort((a,b)=>b.d.days-a.d.days);
     const collapsed=!!_ganttCol[mn];
-    body+=`<tr onclick="ganttToggle('${mn.replace(/'/g,"\\'")}')" style="cursor:pointer;background:#eef2f6"><td colspan="${cols}" style="padding:0;position:sticky;left:0"><div style="${stick};padding:7px 12px;display:flex;align-items:center;gap:8px"><i class="bi bi-chevron-${collapsed?'right':'down'}" style="font-size:10px;color:#64748b"></i><b style="font-size:13px;color:#0f172a">${esc(mn)}</b><span style="font-size:11px;color:#64748b">${gr.length}대${long.length?` · <span style="color:#9a3412">장기 ${long.length}</span>`:''}</span></div></td></tr>`;
+    body+=`<tr onclick="ganttToggle('${mn.replace(/'/g,"\\'")}')" style="cursor:pointer;background:#eef2f6"><td colspan="${cols}" style="padding:0;position:sticky;left:0"><div style="${stick};padding:7px 12px;display:flex;align-items:center;gap:8px"><i class="bi bi-chevron-${collapsed?'right':'down'}" style="font-size:10px;color:#64748b"></i><span style="width:11px;height:11px;border-radius:3px;background:${modelColor(mn)};display:inline-block;flex-shrink:0"></span><b style="font-size:13px;color:#0f172a">${esc(mn)}</b><span style="font-size:11px;color:#64748b">${gr.length}대${long.length?` · <span style="color:#9a3412">장기 ${long.length}</span>`:''}</span></div></td></tr>`;
     if(!collapsed){short.forEach(x=>{body+=unitRow(x.r,false);});
       if(long.length){body+=`<tr><td colspan="${cols}" style="padding:0;position:sticky;left:0"><div style="${stick};padding:3px 12px 3px 24px;background:#fff7ed;font-size:10.5px;color:#9a3412;font-weight:700">🕐 1개월 이상 장기 데모 (${long.length}대)</div></td></tr>`;long.forEach(x=>{body+=unitRow(x.r,true);});}
     }
@@ -1273,7 +1276,7 @@ function viewGantt(){
     +`<select class="sel" onchange="ganttEq=this.value;render()"><option value="">제품 전체</option>${eqOpts.map(x=>`<option ${ganttEq===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`;
   const legend=['데모','대체','교체','납품','철수'].map(k=>`<span style="font-size:11px;color:${eKcol(k)};background:${eKcol(k)}22;border-radius:5px;padding:2px 8px;margin-right:4px">${k}</span>`).join('');
   return head('📊 데모 진행 타임라인',`${winStart} ~ ${winEnd} · ${serials.length}대 · 제품군 헤더 클릭→접기/펼치기 · 막대 클릭→상세 · 짧은 데모 위 / 장기(1개월↑) 아래`,ctl)
-    +`<div style="margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="muted" style="font-size:11px">범례</span>${legend}${serialLess?`<span style="font-size:11px;color:#b45309;background:#fef3c7;border-radius:5px;padding:2px 8px" title="시리얼 미기재 이동은 병원명으로 표시(같은 장비 추적 불가)">시리얼無 ${serialLess}건 = 병원명 표시</span>`:''}<span class="muted" style="font-size:11px;margin-left:auto">📍 = 오늘 위치</span></div>`
+    +`<div style="margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="muted" style="font-size:11px">막대색=제품군 · 종류</span>${legend}${serialLess?`<span style="font-size:11px;color:#b45309;background:#fef3c7;border-radius:5px;padding:2px 8px" title="시리얼 미기재 이동은 병원명으로 표시(같은 장비 추적 불가)">시리얼無 ${serialLess}건 = 병원명 표시</span>`:''}<span class="muted" style="font-size:11px;margin-left:auto">📍 = 오늘 위치</span></div>`
     +`<div class="card" style="padding:0;overflow:auto"><table style="border-collapse:separate;border-spacing:0;table-layout:fixed;width:100%;min-width:${190+N*34}px"><colgroup><col style="width:190px">${days.map(()=>'<col>').join('')}</colgroup><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 
