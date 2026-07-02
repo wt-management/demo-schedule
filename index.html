@@ -135,6 +135,26 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
 <div id="mbg"><div class="modal" id="modal"></div></div>
 <div class="toast" id="toast"></div>
 
+<style>
+.notif{display:flex;align-items:center;gap:8px;font-size:13px;padding:9px 14px;border-radius:10px;margin-bottom:12px;font-weight:600}
+.notif.new{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+.notif.warn{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa}
+.notif button{margin-left:auto;background:#2563eb;color:#fff;border:0;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer}
+.notif.warn button{background:#ea580c}
+.notif .muted{color:inherit;opacity:.72;font-weight:500}
+.newbadge{display:inline-block;background:#ef4444;color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:5px;letter-spacing:.04em;vertical-align:middle}
+.pk{display:inline-block;font-size:10.5px;font-weight:700;color:#b45309;background:#fef3c7;border-radius:5px;padding:1px 6px;margin-top:4px}
+.pk.ok{color:#15803d;background:#dcfce7}
+.partrow{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.partrow input[type=checkbox]{width:17px;height:17px;flex-shrink:0;cursor:pointer}
+.partrow .pn{flex:1;border:1px solid #e2e8f0;border-radius:7px;padding:6px 9px;font-size:13px}
+.partrow .pn.done{text-decoration:line-through;color:#94a3b8}
+.partrow .prx{border:0;background:#fee2e2;color:#dc2626;border-radius:6px;width:28px;height:30px;cursor:pointer;font-weight:700;flex-shrink:0}
+.partadd{display:flex;gap:6px;margin-top:8px}
+.partadd #mp-new{flex:1;border:1px solid #e2e8f0;border-radius:7px;padding:6px 9px;font-size:13px}
+.partbar{height:6px;background:#eef2f7;border-radius:5px;overflow:hidden;margin:8px 0 2px}
+.partbar>i{display:block;height:100%;background:#16a34a;border-radius:5px;transition:width .2s}
+</style>
 <script>
 const SB_URL='https://mhfacbsittfdkknwybhc.supabase.co',SB_KEY='sb_publishable_aPMOOWAlyJlMcP1ZM_gpPA_jlrcvCRd';
 const _sb=supabase.createClient(SB_URL,SB_KEY);
@@ -143,7 +163,27 @@ const STATUS={planned:{n:'예정',c:'#2563eb'},done:{n:'완료',c:'#16a34a'},can
 const DTYPE=['신규','재데모','온라인','기타'];
 let ME='',DEMO=false,curView='cal',calMode='week',refDate=new Date();
 let SYNC=[],OWN=[];
-let fSales='',fStatus='';
+let fSales='',fStatus='',fBs='';
+let _mp=[];   // 모달 부속품 임시 [{name,done}]
+// 제품별 기본 부속품 프리셋 (키워드 매칭, 위→아래 우선)
+const PART_PRESETS={
+  'oligio kiss':['핸드피스','Kiss 팁','연결 케이블','풋스위치','젤','설명서/카탈로그'],
+  'oligio x':['핸드피스','팁(Face)','팁(Eye)','연결 케이블','풋스위치','젤','설명서/카탈로그'],
+  'oligio':['핸드피스','팁(Face)','팁(Eye)','연결 케이블','풋스위치','젤','설명서/카탈로그'],
+  'tightan':['핸드피스','카트리지','연결 케이블','풋스위치','젤','설명서/카탈로그'],
+  'pico':['핸드피스','아티큘레이팅 암','보안경(고글)','전원 케이블','설명서/카탈로그'],
+  'lavieen':['핸드피스','팁','전원 케이블','설명서/카탈로그'],
+  'default':['본체','핸드피스','전원 케이블','설명서/카탈로그','명함/견적서']
+};
+function presetParts(product){const p=(product||'').toLowerCase();for(const k in PART_PRESETS){if(k!=='default'&&p.indexOf(k)>=0)return PART_PRESETS[k];}return PART_PRESETS['default'];}
+function packed(e){const p=e.parts||[];return{n:p.filter(x=>x&&x.done).length,t:p.length};}
+// 새 데모 알림(마지막 확인 이후 추가분)
+function seenKey(){return 'dsched_seen_'+(ME||'x');}
+function lastSeen(){try{return localStorage.getItem(seenKey())||'';}catch(e){return'';}}
+function markSeenSilent(){try{localStorage.setItem(seenKey(),new Date().toISOString());}catch(e){}}
+function markSeen(){markSeenSilent();render();}
+function isNew(e){return e.source==='direct'&&e.created_at&&e.created_at>lastSeen();}
+function nowISO(){return new Date().toISOString();}
 
 // ── 부트/로그인 ──
 async function boot(){const{data}=await _sb.auth.getSession();if(data&&data.session)await enter(data.session.user);else if(location.hostname==='localhost'||location.hostname==='127.0.0.1'){DEMO=true;ME='demo@local';document.getElementById('uem').textContent=ME;document.getElementById('unm').textContent='demo';document.getElementById('uav').textContent='D';document.getElementById('demo-banner').classList.remove('hidden');OWN=lsGet();if(!OWN.length)seedDemo();afterLoad();}else location.href=CENTRAL;}
@@ -155,7 +195,7 @@ document.addEventListener('click',e=>{const w=document.querySelector('.switch-wr
 async function enter(user){
   ME=user.email||'';document.getElementById('uem').textContent=ME;document.getElementById('unm').textContent=(ME.split('@')[0]||'사용자');document.getElementById('uav').textContent=(ME[0]||'P').toUpperCase();
   // 연동: 한국영업 logs 에서 kind=schedule & type=데모
-  try{const{data}=await _sb.from('logs').select('id,data');SYNC=(data||[]).map(r=>r.data).filter(x=>x&&!x.deleted&&x.kind==='schedule'&&x.type==='데모').map(x=>({id:'w_'+x.id,date:x.date,time:x.time||'',cust:x.custName||'',sales:x.sales||'',product:x.product||'',content:x.content||'',status:x.done?'done':'planned',source:'wontech'}));}catch(e){SYNC=[];}
+  try{const{data}=await _sb.from('logs').select('id,data');SYNC=(data||[]).map(r=>r.data).filter(x=>x&&!x.deleted&&x.kind==='schedule'&&x.type==='데모').map(x=>({id:'w_'+x.id,date:x.date,time:x.time||'',cust:x.custName||'',sales:x.sales||'',bs:'',product:x.product||'',content:x.content||'',status:x.done?'done':'planned',parts:[],created_at:'',source:'wontech'}));}catch(e){SYNC=[];}
   // 자체 입력: demo_schedules 테이블 (없으면 데모모드)
   const probe=await _sb.from('demo_schedules').select('id').limit(1);
   DEMO=!!(probe&&probe.error);
@@ -163,8 +203,8 @@ async function enter(user){
   else{const{data}=await _sb.from('demo_schedules').select('*').order('date');OWN=(data||[]).map(mapOwn);}
   afterLoad();
 }
-function afterLoad(){if(DEMO&&!SYNC.length)seedSync();document.getElementById('boot-ov').style.display='none';document.getElementById('app').style.display='block';render();}
-function mapOwn(r){return{id:r.id,date:r.date,time:r.time||'',cust:r.cust||'',sales:r.sales||'',product:r.product||'',content:r.content||'',demo_type:r.demo_type||'신규',status:r.status||'planned',outcome:r.outcome||'',follow_up:r.follow_up||'',attendees:r.attendees||'',source:'direct'};}
+function afterLoad(){if(DEMO&&!SYNC.length)seedSync();if(!lastSeen())markSeenSilent();document.getElementById('boot-ov').style.display='none';document.getElementById('app').style.display='block';render();}
+function mapOwn(r){return{id:r.id,date:r.date,time:r.time||'',cust:r.cust||'',sales:r.sales||'',bs:r.bs||'',product:r.product||'',content:r.content||'',demo_type:r.demo_type||'신규',status:r.status||'planned',outcome:r.outcome||'',follow_up:r.follow_up||'',attendees:r.attendees||'',parts:Array.isArray(r.parts)?r.parts:[],created_at:r.created_at||'',source:'direct'};}
 
 // ── localStorage 데모 ──
 const LS='dsched_own';
@@ -190,7 +230,16 @@ function seedDemo(){OWN=[
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2000);}
 function esc(s){return(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function today(){return new Date().toISOString().slice(0,10);}
-function all(){let a=SYNC.concat(OWN);if(fSales)a=a.filter(x=>x.sales===fSales);if(fStatus)a=a.filter(x=>x.status===fStatus);return a;}
+function all(){let a=SYNC.concat(OWN);if(fSales)a=a.filter(x=>x.sales===fSales);if(fStatus)a=a.filter(x=>x.status===fStatus);if(fBs)a=a.filter(x=>x.bs===fBs);return a;}
+function bsList(){return[...new Set(SYNC.concat(OWN).map(x=>x.bs).filter(Boolean))].sort();}
+function notifBar(){
+  const nw=OWN.filter(isNew).length;
+  const overdue=all().filter(x=>x.status==='planned'&&x.date<today()).length;
+  let h='';
+  if(nw)h+=`<div class="notif new"><i class="bi bi-bell-fill"></i> 새로 추가된 데모 <b>${nw}건</b> <span class="muted">— 목록에서 <span class="newbadge">NEW</span> 표시 확인</span><button onclick="markSeen()">확인</button></div>`;
+  if(overdue)h+=`<div class="notif warn"><i class="bi bi-exclamation-triangle-fill"></i> 지난 예정 데모 <b>${overdue}건</b> 결과 미입력 <span class="muted">— 완료/노쇼로 정리하세요</span></div>`;
+  return h;
+}
 function byDate(d){return all().filter(x=>x.date===d).sort((a,b)=>(a.time||'').localeCompare(b.time||''));}
 function weekStart(ref){const x=new Date(ref);const day=(x.getDay()+6)%7;x.setHours(0,0,0,0);x.setDate(x.getDate()-day);return x;}
 function fmtDate(d){return d.toISOString().slice(0,10);}
@@ -201,8 +250,9 @@ function statusChip(s){const S=STATUS[s]||STATUS.planned;return `<span class="ch
 function setView(v){curView=v;document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.v===v));render();window.scrollTo(0,0);}
 document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',()=>setView(a.dataset.v)));
 function render(){const v=document.getElementById('view');v.innerHTML=curView==='cal'?viewCal():curView==='list'?viewList():viewStats();}
-function head(title,desc,actions){return `<div class="topbar"><div><h2>${title}</h2><div class="desc">${desc}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${actions||''}</div></div><div class="wrap">`;}
-function filterBar(){const s=salesList();return `<select class="sel" onchange="fSales=this.value;render()"><option value="">담당 전체</option>${s.map(x=>`<option ${fSales===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`+
+function head(title,desc,actions){return `<div class="topbar"><div><h2>${title}</h2><div class="desc">${desc}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${actions||''}</div></div><div class="wrap">${notifBar()}`;}
+function filterBar(){const s=salesList();const bl=bsList();return `<select class="sel" onchange="fSales=this.value;render()"><option value="">담당 전체</option>${s.map(x=>`<option ${fSales===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`+
+  (bl.length?`<select class="sel" onchange="fBs=this.value;render()"><option value="">운송(BS) 전체</option>${bl.map(x=>`<option ${fBs===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`:'')+
   `<select class="sel" onchange="fStatus=this.value;render()"><option value="">상태 전체</option>${Object.keys(STATUS).map(k=>`<option value="${k}" ${fStatus===k?'selected':''}>${STATUS[k].n}</option>`).join('')}</select>`;}
 
 // ── 캘린더 ──
@@ -216,10 +266,11 @@ function viewCal(){
   const legend=`<div class="legend">${Object.keys(STATUS).map(k=>`<span><span class="dot" style="background:${STATUS[k].c}"></span> ${STATUS[k].n}</span>`).join('')}<span style="margin-left:auto"><span class="syncbadge">연동</span> 한국영업 · 나머지 직접입력</span></div>`;
   return head('📅 데모 일정','누가 언제 어디서 데모하는지 · 한국영업 데모 자동 연동',actions)+legend+(calMode==='week'?calWeek():calMonth())+'</div>';
 }
-function evCard(e){return `<div class="ev" style="border-left-color:${(STATUS[e.status]||STATUS.planned).c}" onclick="event.stopPropagation();openView('${e.id}')">
-  <div class="t1"><span class="tm">${e.time||'-'}</span>${e.source==='wontech'?'<span class="syncbadge">연동</span>':statusChip(e.status)}</div>
+function evCard(e){const pk=packed(e);return `<div class="ev" style="border-left-color:${(STATUS[e.status]||STATUS.planned).c}" onclick="event.stopPropagation();openView('${e.id}')">
+  <div class="t1"><span class="tm">${e.time||'-'}</span>${isNew(e)?'<span class="newbadge">NEW</span> ':''}${e.source==='wontech'?'<span class="syncbadge">연동</span>':statusChip(e.status)}</div>
   <div class="cust">${esc(e.cust)||'(미지정)'}</div>
-  <div class="meta">${e.sales?'👤 '+esc(e.sales):''}${e.product?' · '+esc(e.product):''}</div></div>`;}
+  <div class="meta">${e.sales?'👤 '+esc(e.sales):''}${e.bs?' · 🚚 '+esc(e.bs):''}${e.product?' · '+esc(e.product):''}</div>
+  ${pk.t?`<div class="pk ${pk.n===pk.t?'ok':''}">📦 ${pk.n}/${pk.t}</div>`:''}</div>`;}
 function calWeek(){
   const ws=weekStart(refDate);const days=[];for(let i=0;i<7;i++){const d=new Date(ws);d.setDate(d.getDate()+i);days.push(d);}
   const dn=['월','화','수','목','금','토','일'];
@@ -237,12 +288,14 @@ function calMonth(){
 // ── 목록 ──
 function viewList(){
   let evs=all().slice().sort((a,b)=>(b.date+(b.time||'')).localeCompare(a.date+(a.time||'')));
-  const rows=evs.length?evs.map(e=>`<tr onclick="openView('${e.id}')"><td>${e.date} <span class="muted" style="color:var(--muted)">${e.time||''}</span></td>
-    <td><b style="color:var(--ink)">${esc(e.cust)||'-'}</b></td><td>${esc(e.sales)||'-'}</td><td>${esc(e.product)||'-'}</td>
+  const rows=evs.length?evs.map(e=>{const pk=packed(e);return `<tr onclick="openView('${e.id}')"><td>${e.date} <span class="muted" style="color:var(--muted)">${e.time||''}</span>${isNew(e)?' <span class="newbadge">NEW</span>':''}</td>
+    <td><b style="color:var(--ink)">${esc(e.cust)||'-'}</b></td>
+    <td>${esc(e.sales)||'-'}${e.bs?`<div class="muted" style="color:var(--muted);font-size:11px">🚚 ${esc(e.bs)}</div>`:''}</td>
+    <td>${esc(e.product)||'-'}${pk.t?` <span class="pk ${pk.n===pk.t?'ok':''}">📦${pk.n}/${pk.t}</span>`:''}</td>
     <td>${e.source==='wontech'?'<span class="syncbadge">연동</span>':statusChip(e.status)}</td>
-    <td style="color:var(--muted);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.outcome||e.content||'')}</td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">데모 일정이 없습니다</td></tr>';
-  return head('📋 데모 목록 · 결과관리','최근순 · 완료 데모의 결과·후속을 기록하세요',filterBar()+`<button class="btn btn-primary" onclick="openModal()">+ 데모 추가</button>`)+
-    `<div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>일시</th><th>거래처</th><th>담당</th><th>제품</th><th>상태</th><th>결과 / 메모</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    <td style="color:var(--muted);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.outcome||e.content||'')}</td></tr>`;}).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">데모 일정이 없습니다</td></tr>';
+  return head('📋 데모 목록 · 결과관리','최근순 · 완료 데모의 결과·후속을 기록하세요 · 🚚=운송(BS) · 📦=부속품',filterBar()+`<button class="btn btn-primary" onclick="openModal()">+ 데모 추가</button>`)+
+    `<div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>일시</th><th>거래처</th><th>담당 / BS</th><th>제품 / 부속품</th><th>상태</th><th>결과 / 메모</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 
 // ── 통계 ──
@@ -256,10 +309,19 @@ function viewStats(){
     {v:A.filter(x=>x.status==='planned'&&x.date>=t).length,l:'예정'},
     {v:A.filter(x=>x.status==='done'&&inWeek(x)).length,l:'이번주 완료',c:'var(--ok)'},
     {v:A.filter(x=>x.status==='noshow'||x.status==='canceled').length,l:'노쇼·취소',c:'var(--bad)'},
+    {v:A.filter(x=>x.status==='planned'&&x.date<t).length,l:'결과 미기록',c:'var(--bad)'},
   ];
   // 담당자별
   const byS={};A.forEach(x=>{if(!x.sales)return;byS[x.sales]=byS[x.sales]||{t:0,done:0};byS[x.sales].t++;if(x.status==='done')byS[x.sales].done++;});
   const sArr=Object.entries(byS).sort((a,b)=>b[1].t-a[1].t);const maxS=Math.max(1,...sArr.map(x=>x[1].t));
+  // BS(운송)별
+  const byB={};A.forEach(x=>{if(!x.bs)return;byB[x.bs]=byB[x.bs]||{t:0,done:0};byB[x.bs].t++;if(x.status==='done')byB[x.bs].done++;});
+  const bArr=Object.entries(byB).sort((a,b)=>b[1].t-a[1].t);const maxB=Math.max(1,...bArr.map(x=>x[1].t));
+  // 부속품 준비율 (예정·미래 데모 중 부속품 등록된 건)
+  const prep=A.filter(x=>x.status==='planned'&&x.date>=t&&(x.parts||[]).length);
+  let pkN=0,pkT=0;prep.forEach(x=>{const p=packed(x);pkN+=p.n;pkT+=p.t;});
+  const readyCnt=prep.filter(x=>{const p=packed(x);return p.t&&p.n===p.t;}).length;
+  const prepRate=pkT?Math.round(pkN/pkT*100):0;
   // 상태분포
   const st={};A.forEach(x=>st[x.status]=(st[x.status]||0)+1);
   // 제품별
@@ -270,7 +332,14 @@ function viewStats(){
     <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:14px">
       <div class="card"><div class="sect"><span>👤 담당자별 데모</span></div>${sArr.map(([n,v])=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:80px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${v.t/maxS*100}%;background:var(--brand)"></i></div><div style="width:80px;text-align:right;font-size:12px" class="muted">${v.t}건 (완료 ${v.done})</div></div>`).join('')||'<div style="color:var(--muted);padding:10px">데이터 없음</div>'}</div>
       <div class="card"><div class="sect"><span>🎯 상태 분포</span></div>${Object.keys(STATUS).map(k=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:70px">${statusChip(k)}</div><div class="bar" style="flex:1"><i style="width:${(st[k]||0)/Math.max(1,A.length)*100}%;background:${STATUS[k].c}"></i></div><b style="width:40px;text-align:right">${st[k]||0}</b></div>`).join('')}</div></div>
-    <div class="card"><div class="sect"><span>📦 제품별 데모 (상위)</span></div>${pArr.map(([n,v])=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:120px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${v/maxP*100}%;background:#0891b2"></i></div><b style="width:36px;text-align:right">${v}</b></div>`).join('')||'<div style="color:var(--muted);padding:10px">데이터 없음</div>'}</div></div>`;
+    <div class="card"><div class="sect"><span>📦 제품별 데모 (상위)</span></div>${pArr.map(([n,v])=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:120px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${v/maxP*100}%;background:#0891b2"></i></div><b style="width:36px;text-align:right">${v}</b></div>`).join('')||'<div style="color:var(--muted);padding:10px">데이터 없음</div>'}</div>
+    <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:14px">
+      <div class="card"><div class="sect"><span>🚚 BS(운송)별 데모</span></div>${bArr.map(([n,v])=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:80px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${v.t/maxB*100}%;background:#0f766e"></i></div><div style="width:84px;text-align:right;font-size:12px" class="muted">${v.t}건 (완료 ${v.done})</div></div>`).join('')||'<div style="color:var(--muted);padding:10px">BS(운송담당) 정보가 아직 없습니다</div>'}</div>
+      <div class="card"><div class="sect"><span>📦 부속품 준비율 <span class="muted" style="font-weight:400;font-size:11px">· 예정 데모</span></span></div>
+        <div style="display:flex;align-items:baseline;gap:10px;margin:6px 0"><div style="font-size:30px;font-weight:800;color:${prepRate>=100?'var(--ok)':'var(--ink)'}">${prepRate}%</div><div class="muted" style="font-size:12.5px">${pkN}/${pkT} 부속품 · 완비 ${readyCnt}/${prep.length}건</div></div>
+        <div class="partbar"><i style="width:${prepRate}%"></i></div>
+        <div class="muted" style="font-size:11.5px;margin-top:9px">예정 데모의 부속품 체크 진행률입니다. 데모 당일 전 100%로 채우면 누락 없이 챙길 수 있어요.</div></div>
+    </div></div>`;
 }
 
 // ── 조회/편집 ──
@@ -288,13 +357,15 @@ function openModalRO(e){document.getElementById('modal').innerHTML=`<div class="
   <div class="mf"><div></div><button class="btn" onclick="closeModal()">닫기</button></div>`;
   document.getElementById('mbg').style.display='flex';
 }
-function openModal(pre){pre=pre||{};const e=pre.id?pre:{date:pre.date||today(),time:'',cust:'',sales:ME.split('@')[0]||'',product:'',content:'',demo_type:'신규',status:'planned',outcome:'',follow_up:'',attendees:''};const editing=!!e.id;
+function openModal(pre){pre=pre||{};const e=pre.id?pre:{date:pre.date||today(),time:'',cust:'',sales:ME.split('@')[0]||'',bs:'',product:'',content:'',demo_type:'신규',status:'planned',outcome:'',follow_up:'',attendees:'',parts:[]};const editing=!!e.id;
+  _mp=(e.parts||[]).map(p=>({name:p.name,done:!!p.done}));
   document.getElementById('modal').innerHTML=`<div class="mh"><h3>${editing?'데모 수정':'데모 추가'}</h3><button class="x" onclick="closeModal()">×</button></div>
     <div class="mb">
       <div class="fld"><label>거래처 / 병원명</label><input id="f-cust" value="${esc(e.cust)}" placeholder="예: 아비쥬의원 명동점"></div>
       <div class="fr3"><div class="fld"><label>날짜</label><input id="f-date" type="date" value="${e.date}"></div><div class="fld"><label>시간</label><input id="f-time" type="time" value="${e.time||''}"></div><div class="fld"><label>구분</label><select id="f-dtype">${DTYPE.map(x=>`<option ${e.demo_type===x?'selected':''}>${x}</option>`).join('')}</select></div></div>
-      <div class="fr"><div class="fld"><label>담당자</label><input id="f-sales" value="${esc(e.sales)}"></div><div class="fld"><label>데모 제품</label><input id="f-prod" value="${esc(e.product)}" placeholder="예: Oligio X"></div></div>
+      <div class="fr3"><div class="fld"><label>담당 영업</label><input id="f-sales" value="${esc(e.sales)}"></div><div class="fld"><label>BS (운송담당)</label><input id="f-bs" value="${esc(e.bs)}" placeholder="운송·설치 담당"></div><div class="fld"><label>데모 제품</label><input id="f-prod" value="${esc(e.product)}" placeholder="예: Oligio X"></div></div>
       <div class="fr"><div class="fld"><label>상태</label><select id="f-status">${Object.keys(STATUS).map(k=>`<option value="${k}" ${e.status===k?'selected':''}>${STATUS[k].n}</option>`).join('')}</select></div><div class="fld"><label>참석자</label><input id="f-att" value="${esc(e.attendees)}" placeholder="원장, 실장"></div></div>
+      <div class="fld"><label>📦 부속품 체크리스트 <span style="font-weight:400;color:var(--muted);font-size:11px">— 챙길 부속품 입력·체크</span></label><div id="parts-box">${partsBox()}</div></div>
       <div class="fld"><label>메모</label><textarea id="f-note">${esc(e.content)}</textarea></div>
       <div class="fld"><label>결과 / 피드백 (완료 후)</label><textarea id="f-outcome" placeholder="반응·관심도·수주가능성 등">${esc(e.outcome)}</textarea></div>
       <div class="fld"><label>후속 액션</label><input id="f-follow" value="${esc(e.follow_up)}" placeholder="예: 견적 발송 / 재데모 일정"></div>
@@ -302,14 +373,24 @@ function openModal(pre){pre=pre||{};const e=pre.id?pre:{date:pre.date||today(),t
     <div class="mf"><div>${editing?`<button class="btn" style="color:var(--bad)" onclick="delEv('${e.id}')">삭제</button>`:''}</div><div><button class="btn" onclick="closeModal()">취소</button><button class="btn btn-primary" onclick="saveEv('${editing?e.id:''}')">저장</button></div></div>`;
   document.getElementById('mbg').style.display='flex';
 }
+function partsBox(){return _mp.map((p,i)=>`<div class="partrow"><input type="checkbox" ${p.done?'checked':''} onchange="_mp[${i}].done=this.checked;this.nextElementSibling.classList.toggle('done',this.checked)"><input class="pn ${p.done?'done':''}" value="${esc(p.name)}" onchange="_mp[${i}].name=this.value" placeholder="부속품명"><button type="button" class="prx" onclick="mpDel(${i})">×</button></div>`).join('')
+  +`<div class="partadd"><input id="mp-new" placeholder="부속품 추가 후 Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();mpAdd();}"><button type="button" class="btn btn-sm" onclick="mpAdd()">추가</button><button type="button" class="btn btn-sm" onclick="mpPreset()">📦 제품 기본</button></div>`;}
+function mpRender(){document.getElementById('parts-box').innerHTML=partsBox();}
+function mpAdd(){const el=document.getElementById('mp-new');const v=(el.value||'').trim();if(!v)return;_mp.push({name:v,done:false});mpRender();const n=document.getElementById('mp-new');if(n)n.focus();}
+function mpDel(i){_mp.splice(i,1);mpRender();}
+function mpPreset(){const prod=(document.getElementById('f-prod')||{}).value||'';presetParts(prod).forEach(n=>{if(!_mp.some(p=>p.name===n))_mp.push({name:n,done:false});});mpRender();}
 function closeModal(){document.getElementById('mbg').style.display='none';}
 document.getElementById('mbg').addEventListener('click',e=>{if(e.target.id==='mbg')closeModal();});
-function readForm(id){const g=x=>document.getElementById(x);const rec={id:id||uid(),date:g('f-date').value,time:g('f-time').value,cust:g('f-cust').value.trim(),sales:g('f-sales').value.trim(),product:g('f-prod').value.trim(),content:g('f-note').value.trim(),demo_type:g('f-dtype').value,status:g('f-status').value,outcome:g('f-outcome').value.trim(),follow_up:g('f-follow').value.trim(),attendees:g('f-att').value.trim(),source:'direct'};return rec;}
+function readForm(id){const g=x=>document.getElementById(x);const rec={id:id||uid(),date:g('f-date').value,time:g('f-time').value,cust:g('f-cust').value.trim(),sales:g('f-sales').value.trim(),bs:g('f-bs').value.trim(),product:g('f-prod').value.trim(),content:g('f-note').value.trim(),demo_type:g('f-dtype').value,status:g('f-status').value,outcome:g('f-outcome').value.trim(),follow_up:g('f-follow').value.trim(),attendees:g('f-att').value.trim(),parts:_mp.slice(),source:'direct'};return rec;}
 async function saveEv(id){const rec=readForm(id);if(!rec.date){toast('날짜를 입력하세요');return;}
+  const existing=OWN.find(x=>x.id===rec.id);rec.created_at=existing&&existing.created_at?existing.created_at:nowISO();
   if(DEMO){const i=OWN.findIndex(x=>x.id===rec.id);if(i>=0)OWN[i]=rec;else OWN.push(rec);lsSet(OWN);}
-  else{const row={id:rec.id,date:rec.date,time:rec.time,cust:rec.cust,sales:rec.sales,product:rec.product,content:rec.content,demo_type:rec.demo_type,status:rec.status,outcome:rec.outcome,follow_up:rec.follow_up,attendees:rec.attendees,created_by:ME,updated_at:new Date().toISOString()};
-    const{data,error}=await _sb.from('demo_schedules').upsert(row).select().single();if(error){toast('저장 실패: '+error.message);return;}const i=OWN.findIndex(x=>x.id===rec.id);const m=mapOwn(data);if(i>=0)OWN[i]=m;else OWN.push(m);}
-  closeModal();render();toast('저장됨');
+  else{const row={id:rec.id,date:rec.date,time:rec.time,cust:rec.cust,sales:rec.sales,bs:rec.bs,product:rec.product,content:rec.content,demo_type:rec.demo_type,status:rec.status,outcome:rec.outcome,follow_up:rec.follow_up,attendees:rec.attendees,parts:rec.parts,created_by:ME,updated_at:nowISO()};
+    if(!id)row.created_at=nowISO();
+    let{data,error}=await _sb.from('demo_schedules').upsert(row).select().single();
+    if(error&&/parts|bs|column/i.test(error.message||'')){delete row.parts;delete row.bs;({data,error}=await _sb.from('demo_schedules').upsert(row).select().single());if(!error)toast('부속품·BS는 컬럼추가 SQL(step_demo_schedule_v2) 실행 후 저장됩니다');}
+    if(error){toast('저장 실패: '+error.message);return;}const i=OWN.findIndex(x=>x.id===rec.id);const m=mapOwn(data);if(i>=0)OWN[i]=m;else OWN.push(m);}
+  closeModal();render();toast('저장됨 ✓');
 }
 async function delEv(id){if(!confirm('이 데모 일정을 삭제할까요?'))return;
   if(DEMO){OWN=OWN.filter(x=>x.id!==id);lsSet(OWN);}
