@@ -859,13 +859,13 @@ function demoLoans(model){return EMOVES.filter(e=>e.equipment===model&&(e.kind==
 function occupiedOn(model,ds){return demoLoans(model).filter(e=>e.start_date<=ds&&(!e.end_date||e.end_date>=ds)).length;}
 function availModels(){const m={};EMOVES.forEach(e=>{if((e.kind==='데모'||e.kind==='대체')&&e.equipment&&e.start_date)m[e.equipment]=(m[e.equipment]||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);}
 function fleetDefault(model){const loans=demoLoans(model).filter(e=>e.start_date);if(!loans.length)return 1;let mx=1;loans.forEach(a=>{const ds=a.start_date;let c=0;loans.forEach(b=>{if(b.start_date<=ds&&(!b.end_date||b.end_date>=ds))c++;});if(c>mx)mx=c;});return mx;}  // 전체기간 최대 동시데모(문맥무관 고정)
-function fleetOf(model){return FLEET[model]!=null?FLEET[model]:fleetDefault(model);}
+function fleetOf(model){return FLEET[model]!=null?FLEET[model]:null;}  // 미설정=null(추정치 안 만듦). 가용은 보유 입력해야 계산
 let _availExp={};
 function availToggle(md){_availExp[md]=!_availExp[md];render();}
 function availDetail(m,fleet,cols){const t=today();
   // 가용표·모달과 동일하게 EMOVES(demoLoans) 기준 — 시리얼 없어도 데모중 집계(assetSnapshot은 시리얼 기준이라 불일치했음)
   const outLoans=demoLoans(m).filter(e=>e.start_date<=t&&(!e.end_date||e.end_date>=t)).sort((a,b)=>(eDays(b.start_date)||0)-(eDays(a.start_date)||0));
-  const out=outLoans.length,stock=Math.max(0,(fleet||0)-out);
+  const set=fleet!=null;const out=outLoans.length,stock=set?Math.max(0,fleet-out):null;
   const card=e=>{const dd=eDays(e.start_date);
     return `<div onclick="openEq('${e.id}')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fff;border:1px solid var(--line);border-left:3px solid #2563eb;border-radius:8px;cursor:pointer;font-size:12px">`
       +`<b style="color:#0f172a;flex-shrink:0;overflow:hidden;text-overflow:ellipsis">${esc(e.hospital)||'-'}</b>`
@@ -874,9 +874,9 @@ function availDetail(m,fleet,cols){const t=today();
       +`${dd!=null?`<span style="margin-left:auto;font-weight:700;flex-shrink:0;color:${dd>60?'var(--bad)':dd>30?'#d97706':'var(--muted)'}">${dd}일</span>`:''}</div>`;};
   return `<tr><td colspan="${cols}" style="padding:0;border-bottom:2px solid #e2e8f0"><div style="position:sticky;left:0;width:calc(100vw - 300px);max-width:1600px;padding:12px 16px;background:#f8fafc">`
     +`<div style="display:flex;gap:14px;align-items:center;margin-bottom:10px;font-size:12.5px;flex-wrap:wrap"><b style="color:#0f172a">${esc(m)} 개별 현황</b>`
-    +`<span style="color:var(--muted)">보유 <b>${fleet}</b>대</span><span style="color:#2563eb">🔵 데모중 <b>${out}</b></span><span style="color:#16a34a">🟢 창고(추정) <b>${stock}</b></span>`
+    +`<span style="color:var(--muted)">보유 <b>${set?fleet+'대':'미설정'}</b></span><span style="color:#2563eb">🔵 데모중 <b>${out}</b></span>${set?`<span style="color:#16a34a">🟢 창고(추정) <b>${stock}</b></span>`:''}`
     +`<span style="color:var(--muted);font-size:11px;margin-left:auto">카드 클릭 → 출하 상세</span></div>`
-    +`${out?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px">${outLoans.map(card).join('')}</div>`:`<div style="color:var(--muted);font-size:12px">현재 데모중인 장비가 없습니다. 보유 ${fleet}대는 창고 재고입니다.</div>`}`
+    +`${out?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px">${outLoans.map(card).join('')}</div>`:`<div style="color:var(--muted);font-size:12px">현재 데모중인 장비가 없습니다.${set?' 보유 '+fleet+'대는 창고 재고입니다.':''}</div>`}`
     +`</div></td></tr>`;
 }
 function viewAvail(){
@@ -885,20 +885,26 @@ function viewAvail(){
   const wd=['일','월','화','수','목','금','토'];
   const models=availModels().slice(0,20);
   const th=`<th style="position:sticky;left:0;background:#eef2f6;z-index:3;min-width:120px;text-align:left">장비</th><th style="position:sticky;left:120px;background:#eef2f6;z-index:3;min-width:52px">보유</th>`+days.map(ds=>{const d=new Date(ds+'T00:00');const isT=ds===today();return `<th style="min-width:36px;text-align:center;${isT?'background:#dbeafe;color:#1d4ed8':''}">${d.getMonth()+1}/${d.getDate()}<div style="font-size:9px;color:${d.getDay()===0?'#dc2626':d.getDay()===6?'#2563eb':'#94a3b8'};font-weight:400">${wd[d.getDay()]}</div></th>`;}).join('');
-  const rows=models.map(m=>{const fleet=fleetOf(m);const md=m.replace(/'/g,'');
-    const cells=days.map(ds=>{const occ=occupiedOn(m,ds);const av=fleet-occ;const bg=av>0?'#dcfce7':av===0?'#fef3c7':'#fee2e2';const fg=av>0?'#15803d':av===0?'#b45309':'#dc2626';return `<td onclick="availCell('${md}','${ds}')" style="text-align:center;cursor:pointer;background:${bg};color:${fg};font-weight:700;font-variant-numeric:tabular-nums" title="가용 ${av}대 (데모중 ${occ})">${av}</td>`;}).join('');
-    return `<tr><td onclick="availToggle('${md}')" style="position:sticky;left:0;background:#fff;font-weight:700;color:var(--ink);white-space:nowrap;cursor:pointer" title="클릭 → 이 장비 개별 대수 현황 펼치기/접기"><i class="bi bi-chevron-${_availExp[md]?'down':'right'}" style="font-size:9px;color:#94a3b8;margin-right:5px"></i>${esc(m)}</td><td style="position:sticky;left:120px;background:#fff;text-align:center"><input value="${fleet}" onchange="setFleet('${md}',this.value)" style="width:42px;text-align:center;border:1px solid var(--line);border-radius:6px;padding:3px" title="보유 대수(수정 가능)"></td>${cells}</tr>`+(_availExp[md]?availDetail(m,fleet,days.length+2):'');
+  const rows=models.map(m=>{const fleet=fleetOf(m);const set=fleet!=null;const md=m.replace(/'/g,'');
+    const cells=days.map(ds=>{const occ=occupiedOn(m,ds);
+      if(!set){const bg=occ>0?'#eff6ff':'#fafafa';const fg=occ>0?'#1d4ed8':'#cbd5e1';return `<td onclick="availCell('${md}','${ds}')" style="text-align:center;cursor:pointer;background:${bg};color:${fg};font-weight:700;font-variant-numeric:tabular-nums" title="데모중 ${occ}대 (보유 미설정 — 가용 계산 안됨)">${occ}</td>`;}
+      const av=fleet-occ;const bg=av>0?'#dcfce7':av===0?'#fef3c7':'#fee2e2';const fg=av>0?'#15803d':av===0?'#b45309':'#dc2626';return `<td onclick="availCell('${md}','${ds}')" style="text-align:center;cursor:pointer;background:${bg};color:${fg};font-weight:700;font-variant-numeric:tabular-nums" title="가용 ${av}대 (보유 ${fleet} − 데모중 ${occ})">${av}</td>`;}).join('');
+    return `<tr><td onclick="availToggle('${md}')" style="position:sticky;left:0;background:#fff;font-weight:700;color:var(--ink);white-space:nowrap;cursor:pointer" title="클릭 → 이 장비 개별 대수 현황 펼치기/접기"><i class="bi bi-chevron-${_availExp[md]?'down':'right'}" style="font-size:9px;color:#94a3b8;margin-right:5px"></i>${esc(m)}${set?'':' <span style="font-size:9px;color:#93c5fd;font-weight:600">데모중</span>'}</td><td style="position:sticky;left:120px;background:#fff;text-align:center"><input value="${set?fleet:''}" placeholder="미설정" onchange="setFleet('${md}',this.value)" style="width:42px;text-align:center;border:1px solid ${set?'var(--line)':'#fca5a5'};border-radius:6px;padding:3px" title="실제 보유 대수 입력 → 가용 계산"></td>${cells}</tr>`+(_availExp[md]?availDetail(m,fleet,days.length+2):'');
   }).join('')||'<tr><td colspan="23" style="text-align:center;color:var(--muted);padding:30px">데모 장비가 없습니다</td></tr>';
-  return head('🗓️ 장비 가용','장비명 클릭 → 개별 대수 현황 · 셀 클릭 → 그날 데모 잡기 · 초록=가능/노랑=0/빨강=초과','')
-    +`<div class="muted" style="font-size:12px;margin-bottom:10px">숫자 = 그날 <b>데모 가능 대수</b> (보유 − 데모중). 보유는 관측 최대 동시데모로 기본세팅 → 실제 보유(재고 포함)로 <b>보유칸 직접 수정</b>. 요청 오면 이 표에서 가능 날짜 한눈에 확인.</div>`
+  return head('🗓️ 장비 가용','보유 입력한 장비만 가용 계산 · 미입력은 데모중 대수(파랑) · 셀 클릭 → 그날 목록·데모 잡기','')
+    +`<div class="muted" style="font-size:12px;margin-bottom:10px;line-height:1.6"><b style="color:#dc2626">⚠️ 보유 대수를 입력해야 가용이 계산됩니다.</b> 미입력 장비는 <span style="color:#1d4ed8">파란 숫자 = 그날 데모중 대수</span>(실제 데이터)만 표시. 보유 입력 시 → 가용(보유−데모중, 초록=가능/노랑=0/빨강=초과). <br>※ 종료일이 없거나 8/31 등 임시값인 데모가 계속 '데모중'으로 잡히니, <b>끝난 데모는 철수 처리</b>하면 정확해집니다(출하이력에서).</div>`
     +`<div class="card" style="padding:0;overflow:auto"><table style="border-collapse:separate;border-spacing:0"><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 function availCell(model,ds){
-  const occ=demoLoans(model).filter(e=>e.start_date<=ds&&(!e.end_date||e.end_date>=ds));
-  const fleet=fleetOf(model);const av=fleet-occ.length;
-  const rows=occ.map(e=>`<tr class="clk" onclick="openEq('${e.id}')"><td>${esc(e.hospital)}</td><td>${esc(serN(e.serial))||'-'}</td><td style="white-space:nowrap">${e.start_date||'-'} ~ ${e.end_date||'미정'}</td><td>${esc(e.handler)}</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">이 날 데모중 장비 없음</td></tr>';
+  const occ=demoLoans(model).filter(e=>e.start_date<=ds&&(!e.end_date||e.end_date>=ds)).sort((a,b)=>(a.start_date||'').localeCompare(b.start_date||''));
+  const fleet=fleetOf(model);const set=fleet!=null;const av=set?fleet-occ.length:null;
+  const rows=occ.map(e=>{const dd=eDays(e.start_date);const susp=!e.end_date||['2026-08-31','2026-12-31','2027-06-30'].indexOf(e.end_date)>=0||(dd||0)>120;
+    return `<tr class="clk" onclick="closeModal();openEq('${e.id}')"><td>${esc(e.hospital)}</td><td>${esc(serN(e.serial))||'-'}</td><td style="white-space:nowrap">${e.start_date||'-'} ~ ${e.end_date||'<span style=color:#dc2626>미정</span>'}${susp?' <span style="font-size:9px;color:#b45309;background:#fef3c7;border-radius:3px;padding:0 3px" title="종료일 없음/임시값 — 끝났으면 철수 처리">확인</span>':''}</td><td>${esc(e.sales_rep||e.handler)}</td></tr>`;}).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">이 날 데모중 장비 없음</td></tr>';
+  const headLine=set
+    ? `이 날 <b style="color:${av>0?'#16a34a':'#dc2626'}">${av>0?av+'대 데모 가능':'가용 없음'}</b> <span class="muted">(보유 ${fleet} − 데모중 ${occ.length})</span>`
+    : `이 날 <b style="color:#1d4ed8">데모중 ${occ.length}대</b> <span class="muted">· 보유 미설정이라 가용은 계산 안 됨 (보유 입력 시 ${occ.length}대 빼서 계산)</span>`;
   document.getElementById('modal').classList.add('recs');
-  document.getElementById('modal').innerHTML=`<div class="mh"><h3>${esc(model)} · ${ds} <span class="muted" style="font-size:12px;font-weight:500">가용 ${av}/${fleet}대</span></h3><button class="x" onclick="closeModal()">×</button></div><div class="mb"><div style="font-size:15px;margin-bottom:12px">이 날 <b style="color:${av>0?'#16a34a':'#dc2626'}">${av>0?av+'대 데모 가능':'가용 없음'}</b> <span class="muted">(보유 ${fleet} − 데모중 ${occ.length})</span></div><div style="overflow:auto"><table><thead><tr><th>병원</th><th>시리얼</th><th>데모 기간</th><th>담당</th></tr></thead><tbody>${rows}</tbody></table></div></div><div class="mf"><div class="muted" style="font-size:11.5px">행 클릭 → 해당 데모</div><button class="btn btn-primary" onclick="closeModal();openEq(null,{kind:'데모',equipment:'${model.replace(/'/g,'')}',start_date:'${ds}'})">＋ 이 날 데모 잡기</button></div>`;
+  document.getElementById('modal').innerHTML=`<div class="mh"><h3>${esc(model)} · ${ds} <span class="muted" style="font-size:12px;font-weight:500">${set?'가용 '+av+'/'+fleet+'대':'데모중 '+occ.length+'대'}</span></h3><button class="x" onclick="closeModal()">×</button></div><div class="mb"><div style="font-size:15px;margin-bottom:6px">${headLine}</div><div class="muted" style="font-size:11.5px;margin-bottom:10px">아래는 이 날 <b>데모중(사외에 나가있는)</b> 장비 목록입니다. '확인' 표시는 종료일이 없거나 임시값이라 실제로 끝났을 수 있는 건 — 철수 처리하면 데모중에서 빠집니다.</div><div style="overflow:auto"><table><thead><tr><th>병원</th><th>시리얼</th><th>데모 기간</th><th>담당</th></tr></thead><tbody>${rows}</tbody></table></div></div><div class="mf"><div class="muted" style="font-size:11.5px">행 클릭 → 해당 데모(철수 처리)</div><button class="btn btn-primary" onclick="closeModal();openEq(null,{kind:'데모',equipment:'${model.replace(/'/g,'')}',start_date:'${ds}'})">＋ 이 날 데모 잡기</button></div>`;
   document.getElementById('mbg').style.display='flex';
 }
 
