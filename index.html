@@ -105,22 +105,24 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
 </head>
 <body>
 <div id="boot-ov"><i class="bi bi-arrow-repeat" style="margin-right:8px"></i>불러오는 중…</div>
-<div id="login"><div class="lc"><h1>📅 데모 일정</h1><div style="text-align:center;color:#94a3b8;font-size:13px;margin:4px 0 20px">한국영업 데모 연동</div><input id="li" type="email" placeholder="이메일"><input id="lp" type="password" placeholder="비밀번호"><button onclick="doLogin()">로그인</button><div id="le" style="color:#b91c1c;font-size:12px;text-align:center;margin-top:8px;display:none">이메일 또는 비밀번호가 올바르지 않습니다.</div></div></div>
+<div id="login"><div class="lc"><h1>🎛️ 장비 통합관리</h1><div style="text-align:center;color:#94a3b8;font-size:13px;margin:4px 0 20px">데모 · 출하 · 보상판매 통합</div><input id="li" type="email" placeholder="이메일"><input id="lp" type="password" placeholder="비밀번호"><button onclick="doLogin()">로그인</button><div id="le" style="color:#b91c1c;font-size:12px;text-align:center;margin-top:8px;display:none">이메일 또는 비밀번호가 올바르지 않습니다.</div></div></div>
 
 <div id="app">
   <aside id="sidebar">
-    <div class="brand"><div class="lg">📅</div><div><b>데모 일정</b><small>Demo Schedule</small></div></div>
+    <div class="brand"><div class="lg">🎛️</div><div><b>장비 통합관리</b><small>데모·출하·보상 Ops Center</small></div></div>
     <nav class="nav">
-      <div class="grp">일정</div>
-      <a class="active" data-v="cal"><span class="ico">📅</span><span class="lbl">데모 캘린더</span></a>
+      <a class="active" data-v="home"><span class="ico">🏠</span><span class="lbl">통합 현황</span><span id="home-badge" style="margin-left:auto;background:#ef4444;color:#fff;border-radius:10px;font-size:10px;padding:1px 7px;font-weight:700;display:none"></span></a>
+      <a data-v="cal"><span class="ico">📅</span><span class="lbl">통합 캘린더</span></a>
+      <a data-v="clinic"><span class="ico">🏥</span><span class="lbl">거래처 통합조회</span></a>
+      <div class="grp" style="margin-top:14px">데모</div>
       <a data-v="list"><span class="ico">📋</span><span class="lbl">목록 · 결과관리</span></a>
-      <a data-v="stats"><span class="ico">📊</span><span class="lbl">통계</span></a>
-      <div class="grp" style="margin-top:14px">장비 관리</div>
-      <a data-v="elog"><span class="ico">📦</span><span class="lbl">출하 이력</span></a>
-      <a data-v="estat"><span class="ico">🖥️</span><span class="lbl">장비 현황</span></a>
+      <a data-v="stats"><span class="ico">📊</span><span class="lbl">데모 통계</span></a>
+      <div class="grp" style="margin-top:14px">장비</div>
       <a data-v="avail"><span class="ico">🗓️</span><span class="lbl">장비 가용</span></a>
+      <a data-v="estat"><span class="ico">🖥️</span><span class="lbl">장비 현황</span></a>
+      <a data-v="elog"><span class="ico">📦</span><span class="lbl">출하 이력</span></a>
       <a data-v="eana"><span class="ico">📊</span><span class="lbl">출하 분석</span></a>
-      <div class="grp" style="margin-top:14px">보상판매 (트레이드인)</div>
+      <div class="grp" style="margin-top:14px">보상판매</div>
       <a data-v="tiwork"><span class="ico">📥</span><span class="lbl">처리 현황</span><span id="ti-badge" style="margin-left:auto;background:#ef4444;color:#fff;border-radius:10px;font-size:10px;padding:1px 7px;font-weight:700;display:none"></span></a>
       <a data-v="tilist"><span class="ico">📋</span><span class="lbl">회수 내역</span></a>
       <a data-v="tirefurb"><span class="ico">♻️</span><span class="lbl">리퍼 재고</span></a>
@@ -136,7 +138,7 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
         <div class="sw-item" onclick="goSite('https://wt-management.github.io/wt-consumables/')"><span class="sw-badge" style="background:#16a34a">일보</span><span style="flex:1">일일매출보고</span></div>
         <div class="sw-item" onclick="goSite('https://wt-management.github.io/pm-planner/')"><span class="sw-badge" style="background:#8b5cf6">기획</span><span style="flex:1">상품기획 PM</span></div>
         <div class="sw-item" onclick="goSite('https://wt-management.github.io/sales-portfolio/')"><span class="sw-badge" style="background:#3f5e7a">PF</span><span style="flex:1">Sales Portfolio</span></div>
-        <div class="sw-item cur"><span class="sw-badge" style="background:#2563eb">데모</span><span style="flex:1">데모 일정</span><i class="bi bi-check2"></i></div>
+        <div class="sw-item cur"><span class="sw-badge" style="background:#2563eb">장비</span><span style="flex:1">장비 통합관리</span><i class="bi bi-check2"></i></div>
         <div class="sw-item" onclick="goSite('https://wt-management.github.io/wontech/#app=admin')"><span class="sw-badge" style="background:#6b7280">ADM</span><span style="flex:1">관리자 페이지</span></div>
       </div></div>
   </aside>
@@ -174,7 +176,7 @@ const _sb=supabase.createClient(SB_URL,SB_KEY);
 const CENTRAL='https://wt-management.github.io/wontech/';
 const STATUS={planned:{n:'예정',c:'#2563eb'},done:{n:'완료',c:'#16a34a'},canceled:{n:'취소',c:'#94a3b8'},noshow:{n:'노쇼',c:'#dc2626'}};
 const DTYPE=['신규','재데모','온라인','기타'];
-let ME='',DEMO=false,curView='cal',calMode='week',refDate=new Date();
+let ME='',DEMO=false,curView='home',calMode='week',refDate=new Date();
 let SYNC=[],OWN=[];
 let fSales='',fStatus='',fBs='';
 let _mp=[];   // 모달 부속품 임시 [{name,done}]
@@ -221,7 +223,7 @@ async function enter(user){
   afterLoad();
 }
 function afterLoad(){if(DEMO&&!SYNC.length)seedSync();if(!lastSeen())markSeenSilent();document.getElementById('boot-ov').style.display='none';document.getElementById('app').style.display='block';
-  const _h=(location.hash||'').replace('#','');if(['cal','list','stats','elog','estat','eana','tiwork','tilist','tirefurb'].indexOf(_h)>=0){curView=_h;document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.v===_h));}
+  const _h=(location.hash||'').replace('#','');if(['home','clinic','cal','list','stats','elog','estat','avail','eana','tiwork','tilist','tirefurb'].indexOf(_h)>=0){curView=_h;document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.v===_h));}
   render();}
 function mapOwn(r){return{id:r.id,date:r.date,time:r.time||'',cust:r.cust||'',sales:r.sales||'',bs:r.bs||'',product:r.product||'',content:r.content||'',demo_type:r.demo_type||'신규',status:r.status||'planned',outcome:r.outcome||'',follow_up:r.follow_up||'',attendees:r.attendees||'',parts:Array.isArray(r.parts)?r.parts:[],created_at:r.created_at||'',source:'direct'};}
 
@@ -271,7 +273,7 @@ document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',()=>se
 let _drill={},_dseq=0;
 function reg(arr){const k='d'+(_dseq++);_drill[k]=arr||[];return k;}
 function openRecsK(k,title,note){openRecs(title,_drill[k]||[],note);}
-function render(){_drill={};_dseq=0;const v=document.getElementById('view');v.innerHTML=curView==='cal'?viewCal():curView==='list'?viewList():curView==='elog'?viewElog():curView==='estat'?viewEstat():curView==='avail'?viewAvail():curView==='eana'?viewEana():curView==='tiwork'?viewTiWork():curView==='tilist'?viewTiList():curView==='tirefurb'?viewTiRefurb():viewStats();tiBadge();}
+function render(){_drill={};_dseq=0;const v=document.getElementById('view');v.innerHTML=curView==='home'?viewHome():curView==='clinic'?viewClinic():curView==='cal'?viewCal():curView==='list'?viewList():curView==='elog'?viewElog():curView==='estat'?viewEstat():curView==='avail'?viewAvail():curView==='eana'?viewEana():curView==='tiwork'?viewTiWork():curView==='tilist'?viewTiList():curView==='tirefurb'?viewTiRefurb():viewStats();tiBadge();homeBadge();}
 function head(title,desc,actions){return `<div class="topbar"><div><h2>${title}</h2><div class="desc">${desc}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${actions||''}</div></div><div class="wrap">${notifBar()}`;}
 function filterBar(){const s=salesList();const bl=bsList();return `<select class="sel" onchange="fSales=this.value;render()"><option value="">담당 전체</option>${s.map(x=>`<option ${fSales===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`+
   (bl.length?`<select class="sel" onchange="fBs=this.value;render()"><option value="">운송(BS) 전체</option>${bl.map(x=>`<option ${fBs===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`:'')+
@@ -793,6 +795,67 @@ function availCell(model,ds){
   document.getElementById('modal').classList.add('recs');
   document.getElementById('modal').innerHTML=`<div class="mh"><h3>${esc(model)} · ${ds} <span class="muted" style="font-size:12px;font-weight:500">가용 ${av}/${fleet}대</span></h3><button class="x" onclick="closeModal()">×</button></div><div class="mb"><div style="font-size:15px;margin-bottom:12px">이 날 <b style="color:${av>0?'#16a34a':'#dc2626'}">${av>0?av+'대 데모 가능':'가용 없음'}</b> <span class="muted">(보유 ${fleet} − 데모중 ${occ.length})</span></div><div style="overflow:auto"><table><thead><tr><th>병원</th><th>시리얼</th><th>데모 기간</th><th>담당</th></tr></thead><tbody>${rows}</tbody></table></div></div><div class="mf"><div class="muted" style="font-size:11.5px">행 클릭 → 해당 데모</div><button class="btn btn-primary" onclick="closeModal();openEq(null,{kind:'데모',equipment:'${model.replace(/'/g,'')}',start_date:'${ds}'})">＋ 이 날 데모 잡기</button></div>`;
   document.getElementById('mbg').style.display='flex';
+}
+
+// ═══════════ 통합 현황(홈) + 거래처 통합조회 ═══════════
+let _clinicSel='';
+function goTiQ(q){_tiQ=q;_tiQSearch='';setView('tiwork');}
+function homeBadge(){const b=document.getElementById('home-badge');if(!b)return;const t=today();
+  const dOver=OWN.filter(x=>x.status==='planned'&&x.date<t).length;
+  const eOver=EMOVES.filter(e=>eOut(e)&&(eDays(e.start_date)||0)>60).length;
+  const ti=TINOTBL?0:tiPending();const tot=dOver+eOver+ti;
+  if(tot>0){b.textContent=tot;b.style.display='inline-block';}else b.style.display='none';}
+function viewHome(){
+  const t=today();const A=OWN.concat(SYNC);
+  const ws=weekStart(new Date()),we=new Date(ws);we.setDate(we.getDate()+7);
+  const inWeek=x=>{const d=new Date(x.date);return d>=ws&&d<we;};
+  const todayDemo=A.filter(x=>x.date===t),weekDemo=A.filter(inWeek),overdueDemo=A.filter(x=>x.status==='planned'&&x.date<t);
+  const out=EMOVES.filter(eOut),overdueOut=out.filter(e=>(eDays(e.start_date)||0)>60);
+  const Q=TINOTBL?null:tiQueues();
+  const tiComp=Q?Q.comp.rows:[],tiPay=Q?Q.pay.rows:[],tiUse=Q?Q.usage.rows:[],tiUncol=Q?Q.uncol.rows:[];
+  const rStock=TINOTBL?[]:(TI.items||[]).filter(x=>x.usage==='리퍼'&&!x.refurbOut);
+  const kD=(label,items,c)=>{const kk=reg(items);return `<div class="kpi clk" onclick="openRecsK('${kk}','${esc(label)}')"><div class="v" style="${c?'color:'+c:''}">${items.length}</div><div class="l">${esc(label)} <i class="bi bi-list-ul" style="font-size:10px;opacity:.4"></i></div></div>`;};
+  const kT=(label,items,c)=>{const kk=reg(items);return `<div class="kpi clk" onclick="tiDrillK('${kk}','${esc(label)}')"><div class="v" style="${c?'color:'+c:''}">${items.length}</div><div class="l">${esc(label)} <i class="bi bi-list-ul" style="font-size:10px;opacity:.4"></i></div></div>`;};
+  const kpiRow=`<div class="grid kpis">`+kD('오늘 데모',todayDemo)+kD('이번주 데모',weekDemo)+kD('현재 데모중 장비',out,'#2563eb')+(TINOTBL?'':kT('보상 미처리',tiComp,'#f59e0b')+kT('미회수 트레이드인',tiUncol,'#dc2626')+kT('리퍼 재고',rStock,'#0891b2'))+`</div>`;
+  const todos=[];
+  if(overdueDemo.length)todos.push({l:'데모 결과 미기록',n:overdueDemo.length,c:'#dc2626',act:`onclick="openRecsK('${reg(overdueDemo)}','데모 결과 미기록')"`});
+  if(overdueOut.length)todos.push({l:'장기 미회수 데모 (60일↑)',n:overdueOut.length,c:'#ea580c',act:`onclick="openRecsK('${reg(overdueOut)}','장기 미회수 데모')"`});
+  if(!TINOTBL){
+    if(tiComp.length)todos.push({l:'보상 미처리',n:tiComp.length,c:'#f59e0b',act:`onclick="goTiQ('comp')"`});
+    if(tiPay.length)todos.push({l:'입금 대기',n:tiPay.length,c:'#ef4444',act:`onclick="goTiQ('pay')"`});
+    if(tiUse.length)todos.push({l:'활용 미정',n:tiUse.length,c:'#eab308',act:`onclick="goTiQ('usage')"`});
+    if(tiUncol.length)todos.push({l:'미회수 트레이드인',n:tiUncol.length,c:'#dc2626',act:`onclick="goTiQ('uncol')"`});
+  }
+  const todoH=todos.length?`<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px;margin-bottom:20px">${todos.map(x=>`<div class="kpi clk" style="border-left:4px solid ${x.c}" ${x.act}><div class="v" style="color:${x.c}">${x.n}</div><div class="l">${x.l} <i class="bi bi-arrow-right" style="font-size:10px"></i></div></div>`).join('')}</div>`:`<div class="card" style="text-align:center;color:var(--ok);padding:20px;margin-bottom:20px">✓ 지금 처리 대기 중인 항목이 없습니다</div>`;
+  const em=eByDate(t),tm=TINOTBL?[]:tiByDate(t);
+  const todayBox=(todayDemo.length+em.length+tm.length)?`<div class="card" style="margin-bottom:16px"><div class="sect"><span>📅 오늘 일정 <span class="muted" style="font-weight:400;font-size:11px">${t}</span></span><span style="margin-left:auto;font-size:12px;color:#2563eb;cursor:pointer" onclick="setView('cal')">통합 캘린더 →</span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px">${todayDemo.map(evCard).join('')}${em.map(eEvCard).join('')}${tm.map(tiEvCard).join('')}</div></div>`:'';
+  const avWarn=[];availModels().slice(0,20).forEach(m=>{const av=fleetOf(m,[t])-occupiedOn(m,t);if(av<=0)avWarn.push(m);});
+  const avBox=avWarn.length?`<div class="card" style="margin-bottom:16px"><div class="sect"><span>⚠️ 오늘 데모 불가(가용 0) 장비</span><span style="margin-left:auto;font-size:12px;color:#2563eb;cursor:pointer" onclick="setView('avail')">가용표 →</span></div>${avWarn.map(m=>`<span style="display:inline-block;background:#fee2e2;color:#dc2626;border-radius:8px;padding:4px 10px;font-size:12.5px;font-weight:700;margin:3px 5px 3px 0;cursor:pointer" onclick="setView('avail')">${esc(m)}</span>`).join('')}</div>`:'';
+  return head('🎛️ 통합 현황','데모 · 장비 출하 · 보상판매를 한 화면에 · 숫자·할일 클릭 → 바로 처리','')
+    +kpiRow
+    +`<div class="sect">⚡ 통합 할 일 <span class="muted" style="font-weight:400;font-size:11px">(클릭 → 처리 화면/내역)</span></div>`+todoH
+    +todayBox+avBox+(TINOTBL?'':tiActivityBox());
+}
+function viewClinic(){
+  const q=_clinicSel||'';
+  const search=`<input class="sel" style="width:270px" placeholder="🔍 거래처명 입력 (엔터)" value="${esc(q)}" onkeydown="if(event.key==='Enter'){_clinicSel=this.value.trim();render();}">`+(q?` <button class="btn btn-sm" onclick="_clinicSel='';render()">✕ 목록</button>`:'');
+  if(!q){
+    const m={};const add=(n,k)=>{if(!n)return;m[n]=m[n]||{demo:0,equip:0,ti:0};m[n][k]++;};
+    OWN.forEach(x=>add(x.cust,'demo'));EMOVES.forEach(x=>add(x.hospital,'equip'));(TI.items||[]).forEach(x=>add(x.clinic,'ti'));
+    const arr=Object.entries(m).map(([n,v])=>({n,demo:v.demo,equip:v.equip,ti:v.ti,total:v.demo+v.equip+v.ti})).sort((a,b)=>b.total-a.total).slice(0,80);
+    const rows=arr.map(x=>`<tr class="clk" onclick="_clinicSel='${x.n.replace(/'/g,'')}';render()"><td><b style="color:var(--ink)">${esc(x.n)}</b></td><td style="text-align:right">${x.demo||'·'}</td><td style="text-align:right">${x.equip||'·'}</td><td style="text-align:right">${x.ti||'·'}</td><td style="text-align:right;font-weight:700">${x.total}</td></tr>`).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">데이터 없음</td></tr>';
+    return head('🏥 거래처 통합조회','거래처 하나로 데모·출하·보상 이력을 한눈에 · 행 클릭 → 통합보기',search)
+      +`<div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>거래처</th><th style="text-align:right">데모</th><th style="text-align:right">출하</th><th style="text-align:right">보상</th><th style="text-align:right">합계</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  }
+  const c=hnorm(q);
+  const demos=OWN.filter(x=>{const h=hnorm(x.cust);return h&&(h.indexOf(c)>=0||c.indexOf(h)>=0);}).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const moves=EMOVES.filter(x=>{const h=hnorm(x.hospital);return h&&(h.indexOf(c)>=0||c.indexOf(h)>=0);}).sort((a,b)=>(b.start_date||'').localeCompare(a.start_date||''));
+  const tis=(TI.items||[]).filter(x=>{const h=hnorm(x.clinic);return h&&(h.indexOf(c)>=0||c.indexOf(h)>=0);}).sort((a,b)=>(b.returnDate||'').localeCompare(a.returnDate||''));
+  const secDemo=demos.length?`<div class="card" style="margin-bottom:14px;padding:0;overflow:auto"><div class="sect" style="padding:14px 16px 4px">📅 데모 약속 <span class="muted" style="font-weight:400;font-size:11px">${demos.length}건</span></div><table><thead><tr><th>일시</th><th>담당/BS</th><th>제품</th><th>상태</th><th>결과·메모</th></tr></thead><tbody>${demos.map(x=>`<tr class="clk" onclick="openView('${x.id}')"><td style="white-space:nowrap">${x.date} <span class="muted">${x.time||''}</span></td><td style="white-space:nowrap">${esc(x.sales)}${x.bs?' <span class="muted">🚚'+esc(x.bs)+'</span>':''}</td><td>${esc(x.product)}</td><td>${statusChip(x.status)}</td><td style="color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.outcome||x.content||'')}</td></tr>`).join('')}</tbody></table></div>`:'';
+  const secMove=moves.length?`<div class="card" style="margin-bottom:14px;padding:0;overflow:auto"><div class="sect" style="padding:14px 16px 4px">📦 장비 출하 <span class="muted" style="font-weight:400;font-size:11px">${moves.length}건</span></div><table><thead><tr><th>일자</th><th>종류</th><th>장비/시리얼</th><th>담당</th><th>비고</th></tr></thead><tbody>${moves.map(x=>`<tr class="clk" onclick="openEq('${x.id}')"><td style="white-space:nowrap">${x.start_date||'-'}${x.end_date?' ~'+x.end_date:''}</td><td>${eKindChip(x.kind)}</td><td><b>${esc(x.equipment)}</b>${eSerialTag(x.serial)}</td><td style="white-space:nowrap">${esc(x.handler)}${eHtTag(x.handler_type)}</td><td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.note)}</td></tr>`).join('')}</tbody></table></div>`:'';
+  const secTi=tis.length?`<div class="card" style="margin-bottom:14px;padding:0;overflow:auto"><div class="sect" style="padding:14px 16px 4px">♻️ 보상판매(회수) <span class="muted" style="font-weight:400;font-size:11px">${tis.length}건</span></div><table><thead><tr><th>반납일</th><th>회수장비</th><th>시리얼</th><th>보상</th><th>입금</th><th>활용</th></tr></thead><tbody>${tis.map(x=>`<tr class="clk" onclick="openItemTI('${(x.serial||'').replace(/'/g,'')}')"><td>${x.returnDate||'-'}</td><td>${esc(x.recovDev)}</td><td>${esc(x.serial)}</td><td>${tiYn(x.comp,'완료','미처리')}</td><td>${tiYn(x.paid,'완료','미입금')}</td><td>${tiUsage(x.usage)}</td></tr>`).join('')}</tbody></table></div>`:'';
+  const none=(!demos.length&&!moves.length&&!tis.length)?`<div class="card" style="text-align:center;color:var(--muted);padding:30px">"${esc(q)}" 관련 내역이 없습니다. 거래처명 일부만 입력해도 됩니다.</div>`:'';
+  return head('🏥 '+esc(q),`데모 ${demos.length} · 출하 ${moves.length} · 보상 ${tis.length} — 통합 이력`,search)+secDemo+secMove+secTi+none;
 }
 
 boot();
