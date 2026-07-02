@@ -87,6 +87,10 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
 /* 모달 */
 #mbg{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
 .modal{background:#fff;border-radius:16px;width:520px;max-width:100%;max-height:92vh;overflow:auto;box-shadow:0 24px 70px rgba(0,0,0,.3)}
+.modal.recs{width:860px}
+.clk{cursor:pointer;transition:.1s}
+.kpi.clk:hover{border-color:#93c5fd;box-shadow:0 2px 12px rgba(37,99,235,.14)}
+.rowbar{cursor:pointer;border-radius:8px}.rowbar:hover{background:#f4f7ff}
 .mh{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.mh h3{font-size:16px}.mh .x{border:0;background:transparent;font-size:22px;color:var(--muted);cursor:pointer}
 .mb{padding:20px 22px}.fld{margin-bottom:13px}.fld label{display:block;font-size:12.5px;font-weight:600;color:var(--body);margin-bottom:5px}
 .fld input,.fld select,.fld textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:#fafbfc}.fld textarea{resize:vertical;min-height:56px}
@@ -239,11 +243,10 @@ function all(){let a=SYNC.concat(OWN);if(fSales)a=a.filter(x=>x.sales===fSales);
 function bsList(){return[...new Set(SYNC.concat(OWN).map(x=>x.bs).filter(Boolean))].sort();}
 function notifBar(){
   if(curView==='elog'||curView==='estat'||curView==='eana')return'';
-  const nw=OWN.filter(isNew).length;
-  const overdue=all().filter(x=>x.status==='planned'&&x.date<today()).length;
+  const nwArr=OWN.filter(isNew);const overArr=all().filter(x=>x.status==='planned'&&x.date<today());
   let h='';
-  if(nw)h+=`<div class="notif new"><i class="bi bi-bell-fill"></i> 새로 추가된 데모 <b>${nw}건</b> <span class="muted">— 목록에서 <span class="newbadge">NEW</span> 표시 확인</span><button onclick="markSeen()">확인</button></div>`;
-  if(overdue)h+=`<div class="notif warn"><i class="bi bi-exclamation-triangle-fill"></i> 지난 예정 데모 <b>${overdue}건</b> 결과 미입력 <span class="muted">— 완료/노쇼로 정리하세요</span></div>`;
+  if(nwArr.length){const kk=reg(nwArr);h+=`<div class="notif new clk" onclick="openRecsK('${kk}','새로 추가된 데모')"><i class="bi bi-bell-fill"></i> 새로 추가된 데모 <b>${nwArr.length}건</b> <span class="muted">— 클릭 → 내역 · <span class="newbadge">NEW</span></span><button onclick="event.stopPropagation();markSeen()">확인</button></div>`;}
+  if(overArr.length){const kk=reg(overArr);h+=`<div class="notif warn clk" onclick="openRecsK('${kk}','지난 예정 데모 · 결과 미입력')"><i class="bi bi-exclamation-triangle-fill"></i> 지난 예정 데모 <b>${overArr.length}건</b> 결과 미입력 <span class="muted">— 클릭 → 내역 (완료/노쇼로 정리)</span></div>`;}
   return h;
 }
 function byDate(d){return all().filter(x=>x.date===d).sort((a,b)=>(a.time||'').localeCompare(b.time||''));}
@@ -255,7 +258,10 @@ function statusChip(s){const S=STATUS[s]||STATUS.planned;return `<span class="ch
 // ── 라우팅 ──
 function setView(v){curView=v;document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.v===v));render();window.scrollTo(0,0);}
 document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',()=>setView(a.dataset.v)));
-function render(){const v=document.getElementById('view');v.innerHTML=curView==='cal'?viewCal():curView==='list'?viewList():curView==='elog'?viewElog():curView==='estat'?viewEstat():curView==='eana'?viewEana():viewStats();}
+let _drill={},_dseq=0;
+function reg(arr){const k='d'+(_dseq++);_drill[k]=arr||[];return k;}
+function openRecsK(k,title,note){openRecs(title,_drill[k]||[],note);}
+function render(){_drill={};_dseq=0;const v=document.getElementById('view');v.innerHTML=curView==='cal'?viewCal():curView==='list'?viewList():curView==='elog'?viewElog():curView==='estat'?viewEstat():curView==='eana'?viewEana():viewStats();}
 function head(title,desc,actions){return `<div class="topbar"><div><h2>${title}</h2><div class="desc">${desc}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${actions||''}</div></div><div class="wrap">${notifBar()}`;}
 function filterBar(){const s=salesList();const bl=bsList();return `<select class="sel" onchange="fSales=this.value;render()"><option value="">담당 전체</option>${s.map(x=>`<option ${fSales===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`+
   (bl.length?`<select class="sel" onchange="fBs=this.value;render()"><option value="">운송(BS) 전체</option>${bl.map(x=>`<option ${fBs===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`:'')+
@@ -310,12 +316,12 @@ function viewStats(){
   const inWeek=x=>{const d=new Date(x.date);return d>=ws&&d<we;};
   const t=today();
   const kpis=[
-    {v:A.filter(x=>x.date===t).length,l:'오늘 데모'},
-    {v:A.filter(inWeek).length,l:'이번주 데모'},
-    {v:A.filter(x=>x.status==='planned'&&x.date>=t).length,l:'예정'},
-    {v:A.filter(x=>x.status==='done'&&inWeek(x)).length,l:'이번주 완료',c:'var(--ok)'},
-    {v:A.filter(x=>x.status==='noshow'||x.status==='canceled').length,l:'노쇼·취소',c:'var(--bad)'},
-    {v:A.filter(x=>x.status==='planned'&&x.date<t).length,l:'결과 미기록',c:'var(--bad)'},
+    {items:A.filter(x=>x.date===t),l:'오늘 데모'},
+    {items:A.filter(inWeek),l:'이번주 데모'},
+    {items:A.filter(x=>x.status==='planned'&&x.date>=t),l:'예정'},
+    {items:A.filter(x=>x.status==='done'&&inWeek(x)),l:'이번주 완료',c:'var(--ok)'},
+    {items:A.filter(x=>x.status==='noshow'||x.status==='canceled'),l:'노쇼·취소',c:'var(--bad)'},
+    {items:A.filter(x=>x.status==='planned'&&x.date<t),l:'결과 미기록',c:'var(--bad)'},
   ];
   // 담당자별
   const byS={};A.forEach(x=>{if(!x.sales)return;byS[x.sales]=byS[x.sales]||{t:0,done:0};byS[x.sales].t++;if(x.status==='done')byS[x.sales].done++;});
@@ -334,13 +340,13 @@ function viewStats(){
   const byP={};A.forEach(x=>{if(!x.product)return;byP[x.product]=(byP[x.product]||0)+1;});
   const pArr=Object.entries(byP).sort((a,b)=>b[1]-a[1]).slice(0,8);const maxP=Math.max(1,...pArr.map(x=>x[1]));
   return head('📊 데모 통계','담당자·제품·상태별 데모 현황',filterBar())+
-    `<div class="grid kpis">${kpis.map(k=>`<div class="kpi"><div class="v" style="color:${k.c||'var(--ink)'}">${k.v}</div><div class="l">${k.l}</div></div>`).join('')}</div>
+    `<div class="grid kpis">${kpis.map(k=>{const kk=reg(k.items);return `<div class="kpi clk" onclick="openRecsK('${kk}','${esc(k.l)}')"><div class="v" style="color:${k.c||'var(--ink)'}">${k.items.length}</div><div class="l">${esc(k.l)} <i class="bi bi-list-ul" style="font-size:10px;opacity:.45"></i></div></div>`;}).join('')}</div>
     <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:14px">
-      <div class="card"><div class="sect"><span>👤 담당자별 데모</span></div>${sArr.map(([n,v])=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:80px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${v.t/maxS*100}%;background:var(--brand)"></i></div><div style="width:80px;text-align:right;font-size:12px" class="muted">${v.t}건 (완료 ${v.done})</div></div>`).join('')||'<div style="color:var(--muted);padding:10px">데이터 없음</div>'}</div>
-      <div class="card"><div class="sect"><span>🎯 상태 분포</span></div>${Object.keys(STATUS).map(k=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:70px">${statusChip(k)}</div><div class="bar" style="flex:1"><i style="width:${(st[k]||0)/Math.max(1,A.length)*100}%;background:${STATUS[k].c}"></i></div><b style="width:40px;text-align:right">${st[k]||0}</b></div>`).join('')}</div></div>
-    <div class="card"><div class="sect"><span>📦 제품별 데모 (상위)</span></div>${pArr.map(([n,v])=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:120px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${v/maxP*100}%;background:#0891b2"></i></div><b style="width:36px;text-align:right">${v}</b></div>`).join('')||'<div style="color:var(--muted);padding:10px">데이터 없음</div>'}</div>
+      <div class="card"><div class="sect"><span>👤 담당자별 데모</span></div>${sArr.map(([n,v])=>{const kk=reg(A.filter(x=>x.sales===n));return `<div class="rowbar" onclick="openRecsK('${kk}','담당 · ${esc(n)}')" style="display:flex;align-items:center;gap:10px;padding:6px 8px"><div style="width:80px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${v.t/maxS*100}%;background:var(--brand)"></i></div><div style="width:80px;text-align:right;font-size:12px" class="muted">${v.t}건 (완료 ${v.done})</div></div>`;}).join('')||'<div style="color:var(--muted);padding:10px">데이터 없음</div>'}</div>
+      <div class="card"><div class="sect"><span>🎯 상태 분포</span></div>${Object.keys(STATUS).map(k=>{const kk=reg(A.filter(x=>x.status===k));return `<div class="rowbar" onclick="openRecsK('${kk}','상태 · ${STATUS[k].n}')" style="display:flex;align-items:center;gap:10px;padding:6px 8px"><div style="width:70px">${statusChip(k)}</div><div class="bar" style="flex:1"><i style="width:${(st[k]||0)/Math.max(1,A.length)*100}%;background:${STATUS[k].c}"></i></div><b style="width:40px;text-align:right">${st[k]||0}</b></div>`;}).join('')}</div></div>
+    <div class="card"><div class="sect"><span>📦 제품별 데모 (상위)</span></div>${pArr.map(([n,v])=>{const kk=reg(A.filter(x=>x.product===n));return `<div class="rowbar" onclick="openRecsK('${kk}','제품 · ${esc(n)}')" style="display:flex;align-items:center;gap:10px;padding:6px 8px"><div style="width:120px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${v/maxP*100}%;background:#0891b2"></i></div><b style="width:36px;text-align:right">${v}</b></div>`;}).join('')||'<div style="color:var(--muted);padding:10px">데이터 없음</div>'}</div>
     <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:14px">
-      <div class="card"><div class="sect"><span>🚚 BS(운송)별 데모</span></div>${bArr.map(([n,v])=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:80px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${v.t/maxB*100}%;background:#0f766e"></i></div><div style="width:84px;text-align:right;font-size:12px" class="muted">${v.t}건 (완료 ${v.done})</div></div>`).join('')||'<div style="color:var(--muted);padding:10px">BS(운송담당) 정보가 아직 없습니다</div>'}</div>
+      <div class="card"><div class="sect"><span>🚚 BS(운송)별 데모</span></div>${bArr.map(([n,v])=>{const kk=reg(A.filter(x=>x.bs===n));return `<div class="rowbar" onclick="openRecsK('${kk}','BS · ${esc(n)}')" style="display:flex;align-items:center;gap:10px;padding:6px 8px"><div style="width:80px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${v.t/maxB*100}%;background:#0f766e"></i></div><div style="width:84px;text-align:right;font-size:12px" class="muted">${v.t}건 (완료 ${v.done})</div></div>`;}).join('')||'<div style="color:var(--muted);padding:10px">BS(운송담당) 정보가 아직 없습니다</div>'}</div>
       <div class="card"><div class="sect"><span>📦 부속품 준비율 <span class="muted" style="font-weight:400;font-size:11px">· 예정 데모</span></span></div>
         <div style="display:flex;align-items:baseline;gap:10px;margin:6px 0"><div style="font-size:30px;font-weight:800;color:${prepRate>=100?'var(--ok)':'var(--ink)'}">${prepRate}%</div><div class="muted" style="font-size:12.5px">${pkN}/${pkT} 부속품 · 완비 ${readyCnt}/${prep.length}건</div></div>
         <div class="partbar"><i style="width:${prepRate}%"></i></div>
@@ -386,7 +392,20 @@ function mpRender(){document.getElementById('parts-box').innerHTML=partsBox();}
 function mpAdd(){const el=document.getElementById('mp-new');const v=(el.value||'').trim();if(!v)return;_mp.push({name:v,done:false});mpRender();const n=document.getElementById('mp-new');if(n)n.focus();}
 function mpDel(i){_mp.splice(i,1);mpRender();}
 function mpPreset(){const prod=(document.getElementById('f-prod')||{}).value||'';presetParts(prod).forEach(n=>{if(!_mp.some(p=>p.name===n))_mp.push({name:n,done:false});});mpRender();}
-function closeModal(){document.getElementById('mbg').style.display='none';}
+function closeModal(){document.getElementById('mbg').style.display='none';document.getElementById('modal').classList.remove('recs');}
+// 공용 드릴다운 — 어떤 숫자든 클릭 시 그 내역 목록 (검증용)
+function openRecs(title,items,note){items=(items||[]).filter(Boolean);
+  const isEq=items.length&&('equipment'in items[0])&&('kind'in items[0])&&!('cust'in items[0]);
+  let body;
+  if(isEq){const s=items.slice().sort((a,b)=>((b.start_date||'')+(b.id||'')).localeCompare((a.start_date||'')+(a.id||'')));
+    body=`<table><thead><tr><th>일자</th><th>종류</th><th>장비 / 시리얼</th><th>병원</th><th>담당</th><th>비고</th></tr></thead><tbody>${s.map(e=>`<tr onclick="openEq('${e.id}')"><td style="white-space:nowrap">${e.start_date||'-'}${e.end_date?`<div class="muted" style="color:var(--muted);font-size:11px">~${e.end_date}</div>`:''}</td><td>${eKindChip(e.kind)}</td><td><b style="color:var(--ink)">${esc(e.equipment)||'-'}</b>${eSerialTag(e.serial)}</td><td>${esc(e.hospital)||'-'}</td><td style="white-space:nowrap">${esc(e.handler)}${eHtTag(e.handler_type)}</td><td style="color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.note)}</td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:22px">내역 없음</td></tr>'}</tbody></table>`;
+  }else{const s=items.slice().sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')));
+    body=`<table><thead><tr><th>일시</th><th>거래처</th><th>담당 / BS</th><th>제품</th><th>상태</th><th>결과·메모</th></tr></thead><tbody>${s.map(e=>`<tr onclick="openView('${e.id}')"><td style="white-space:nowrap">${e.date||'-'} <span class="muted" style="color:var(--muted);font-size:11px">${e.time||''}</span></td><td><b style="color:var(--ink)">${esc(e.cust)||'-'}</b></td><td style="white-space:nowrap">${esc(e.sales)||'-'}${e.bs?` <span class="muted" style="color:var(--muted);font-size:11px">🚚${esc(e.bs)}</span>`:''}</td><td>${esc(e.product)||'-'}</td><td>${e.source==='wontech'?'<span class="syncbadge">연동</span>':statusChip(e.status)}</td><td style="color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.outcome||e.content||'')}</td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:22px">내역 없음</td></tr>'}</tbody></table>`;
+  }
+  document.getElementById('modal').classList.add('recs');
+  document.getElementById('modal').innerHTML=`<div class="mh"><h3>${esc(title)} <span class="muted" style="font-size:12px;font-weight:500">${items.length}건</span></h3><button class="x" onclick="closeModal()">×</button></div><div class="mb" style="padding:0">${note?`<div class="muted" style="padding:10px 16px 0;font-size:11.5px">${esc(note)}</div>`:''}<div style="overflow:auto;max-height:64vh">${body}</div></div><div class="mf" style="padding:12px 18px"><div class="muted" style="font-size:11.5px">행 클릭 → 상세/수정</div><button class="btn" onclick="closeModal()">닫기</button></div>`;
+  document.getElementById('mbg').style.display='flex';
+}
 document.getElementById('mbg').addEventListener('click',e=>{if(e.target.id==='mbg')closeModal();});
 function readForm(id){const g=x=>document.getElementById(x);const rec={id:id||uid(),date:g('f-date').value,time:g('f-time').value,cust:g('f-cust').value.trim(),sales:g('f-sales').value.trim(),bs:g('f-bs').value.trim(),product:g('f-prod').value.trim(),content:g('f-note').value.trim(),demo_type:g('f-dtype').value,status:g('f-status').value,outcome:g('f-outcome').value.trim(),follow_up:g('f-follow').value.trim(),attendees:g('f-att').value.trim(),parts:_mp.slice(),source:'direct'};return rec;}
 async function saveEv(id){const rec=readForm(id);if(!rec.date){toast('날짜를 입력하세요');return;}
@@ -460,24 +479,24 @@ function viewEstat(){
   const out=EMOVES.filter(eOut).map(e=>Object.assign({},e,{dd:eDays(e.start_date)})).sort((a,b)=>(b.dd||0)-(a.dd||0));
   const overdue=out.filter(e=>(e.dd||0)>60);
   const ym=today().slice(0,7);
-  const delM=EMOVES.filter(e=>e.kind==='납품'&&(e.start_date||'').startsWith(ym)).length;
-  const retM=EMOVES.filter(e=>e.kind==='철수'&&((e.start_date||e.end_date||'')).startsWith(ym)).length;
-  const kpis=[{v:out.length,l:'현재 데모중(나가있는)'},{v:overdue.length,l:'60일↑ 장기 미회수',c:'var(--bad)'},{v:delM,l:'이번달 납품',c:'var(--ok)'},{v:retM,l:'이번달 철수'}];
-  const byE={};out.forEach(e=>{byE[e.equipment]=(byE[e.equipment]||0)+1;});
-  const eArr=Object.entries(byE).sort((a,b)=>b[1]-a[1]).slice(0,12);const maxE=Math.max(1,...eArr.map(x=>x[1]));
+  const delM=EMOVES.filter(e=>e.kind==='납품'&&(e.start_date||'').startsWith(ym));
+  const retM=EMOVES.filter(e=>e.kind==='철수'&&((e.start_date||e.end_date||'')).startsWith(ym));
+  const kpis=[{v:out.length,l:'현재 데모중(나가있는)',items:out},{v:overdue.length,l:'60일↑ 장기 미회수',c:'var(--bad)',items:overdue},{v:delM.length,l:'이번달 납품',c:'var(--ok)',items:delM},{v:retM.length,l:'이번달 철수',items:retM}];
+  const byE={};out.forEach(e=>{(byE[e.equipment]=byE[e.equipment]||[]).push(e);});
+  const eArr=Object.entries(byE).sort((a,b)=>b[1].length-a[1].length).slice(0,12);const maxE=Math.max(1,...eArr.map(x=>x[1].length));
   const outRows=out.slice(0,300).map(e=>`<tr onclick="openEq('${e.id}')" ${(e.dd||0)>60?'style="background:#fff5f5"':''}>
     <td><b style="color:var(--ink)">${esc(e.equipment)||'-'}</b>${eSerialTag(e.serial)}</td>
     <td>${esc(e.hospital)||'-'}</td><td style="white-space:nowrap">${e.start_date||'-'}</td>
     <td style="font-weight:700;color:${(e.dd||0)>60?'var(--bad)':(e.dd||0)>30?'#d97706':'var(--ink)'}">${e.dd!=null?e.dd+'일':'-'}</td>
     <td style="white-space:nowrap">${esc(e.handler)||'-'}</td>
-    <td><button class="btn btn-sm" onclick="event.stopPropagation();retEq('${e.id}')" title="오늘자로 철수 처리">↩ 철수</button></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">나가있는 데모 장비가 없습니다</td></tr>';
-  return head('🖥️ 장비 현황','지금 나가있는 데모 장비 · 경과일 · 장기 미회수','')+eNoTblBanner()+eOverdueBanner()
-    +`<div class="grid kpis">${kpis.map(k=>`<div class="kpi"><div class="v" style="color:${k.c||'var(--ink)'}">${k.v}</div><div class="l">${k.l}</div></div>`).join('')}</div>`
-    +`<div class="card" style="margin-bottom:14px"><div class="sect"><span>📦 장비별 현재 데모중 (상위)</span></div>${eArr.map(([n,v])=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:130px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${v/maxE*100}%;background:var(--brand)"></i></div><b style="width:40px;text-align:right">${v}대</b></div>`).join('')||'<div style="color:var(--muted);padding:10px">없음</div>'}</div>`
-    +`<div class="card" style="padding:0;overflow:auto"><div class="sect" style="padding:14px 16px 4px"><span>현재 나가있는 데모 장비 <span class="muted" style="font-weight:400;font-size:11px">· 경과일 순 · 빨강=60일↑</span></span></div><table><thead><tr><th>장비 / 시리얼</th><th>병원</th><th>시작일</th><th>경과일</th><th>담당</th><th>액션</th></tr></thead><tbody>${outRows}</tbody></table></div></div>`;
+    <td style="white-space:nowrap"><button class="btn btn-sm" onclick="event.stopPropagation();retEq('${e.id}')" title="오늘자로 철수 처리">↩ 철수</button> <button class="btn btn-sm" onclick="event.stopPropagation();convEq('${e.id}')" title="납품 전환(같은 장비·병원으로 납품 기록)">💰 납품</button></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">나가있는 데모 장비가 없습니다</td></tr>';
+  return head('🖥️ 장비 현황','지금 나가있는 데모 장비 · 숫자·항목 클릭 → 내역','')+eNoTblBanner()+eOverdueBanner()
+    +`<div class="grid kpis">${kpis.map(k=>{const kk=reg(k.items);return `<div class="kpi clk" onclick="openRecsK('${kk}','${esc(k.l)}')"><div class="v" style="color:${k.c||'var(--ink)'}">${k.v}</div><div class="l">${esc(k.l)} <i class="bi bi-list-ul" style="font-size:10px;opacity:.45"></i></div></div>`;}).join('')}</div>`
+    +`<div class="card" style="margin-bottom:14px"><div class="sect"><span>📦 장비별 현재 데모중 (상위) <span class="muted" style="font-weight:400;font-size:11px">· 클릭 → 내역</span></span></div>${eArr.map(([n,arr])=>{const kk=reg(arr);return `<div class="rowbar" onclick="openRecsK('${kk}','현재 데모중 · ${esc(n)}')" style="display:flex;align-items:center;gap:10px;padding:6px 8px"><div style="width:130px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${arr.length/maxE*100}%;background:var(--brand)"></i></div><b style="width:40px;text-align:right">${arr.length}대</b></div>`;}).join('')||'<div style="color:var(--muted);padding:10px">없음</div>'}</div>`
+    +`<div class="card" style="padding:0;overflow:auto"><div class="sect" style="padding:14px 16px 4px"><span>현재 나가있는 데모 장비 <span class="muted" style="font-weight:400;font-size:11px">· 경과일 순 · 빨강=60일↑ · ↩철수 💰납품전환</span></span></div><table><thead><tr><th>장비 / 시리얼</th><th>병원</th><th>시작일</th><th>경과일</th><th>담당</th><th>액션</th></tr></thead><tbody>${outRows}</tbody></table></div></div>`;
 }
 
-function openEq(id){const e=id?EMOVES.find(x=>x.id===id):null;const v=e||{kind:'데모',equipment:'',serial:'',start_date:today(),end_date:'',hospital:'',address:'',handler:'',handler_type:'',note:''};const editing=!!e;const eqs=equipList();
+function openEq(id,pre){const e=id?EMOVES.find(x=>x.id===id):null;const v=e||Object.assign({kind:'데모',equipment:'',serial:'',start_date:today(),end_date:'',hospital:'',address:'',handler:'',handler_type:'',note:''},pre||{});const editing=!!e;const eqs=equipList();
   document.getElementById('modal').innerHTML=`<div class="mh"><h3>${editing?'출하 수정':'출하 추가'}</h3><button class="x" onclick="closeModal()">×</button></div>
     <div class="mb">
       <div class="fr3"><div class="fld"><label>종류</label><select id="e-kind">${EKINDS.map(k=>`<option ${v.kind===k?'selected':''}>${k}</option>`).join('')}</select></div><div class="fld"><label>시작일</label><input id="e-start" type="date" value="${v.start_date||''}"></div><div class="fld"><label>철수/종료일</label><input id="e-end" type="date" value="${v.end_date||''}"></div></div>
@@ -504,9 +523,12 @@ async function saveEq(id){if(ENOTBL){toast('테이블 없음 — step_equipment_
 async function delEq(id){if(!confirm('이 출하 이력을 삭제할까요?'))return;const{error}=await _sb.from('equipment_moves').delete().eq('id',id);if(error){toast('삭제 실패: '+error.message);return;}EMOVES=EMOVES.filter(x=>x.id!==id);closeModal();render();toast('삭제됨');}
 async function retEq(id){const e=EMOVES.find(x=>x.id===id);if(!e)return;if(!confirm(e.hospital+' · '+e.equipment+' 을(를) 오늘자로 철수 처리할까요?'))return;const{data,error}=await _sb.from('equipment_moves').update({end_date:today(),updated_at:nowISO()}).eq('id',id).select().single();if(error){toast('실패: '+error.message);return;}const m=mapEq(data);const i=EMOVES.findIndex(x=>x.id===id);if(i>=0)EMOVES[i]=m;render();toast('철수 처리됨 ✓');}
 
+// 납품 전환 — 데모 장비를 같은 병원·장비로 납품 기록 신규(원 데모는 철수 안내)
+function convEq(id){const e=EMOVES.find(x=>x.id===id);if(!e)return;openEq(null,{kind:'납품',equipment:e.equipment,serial:e.serial,hospital:e.hospital,address:e.address,handler:e.handler,handler_type:e.handler_type,start_date:today(),end_date:'',note:'데모 → 납품 전환'});}
+
 // ④ 장기 미회수 노티
 function eOverdueList(){return EMOVES.filter(e=>eOut(e)&&(eDays(e.start_date)||0)>60).sort((a,b)=>(eDays(b.start_date)||0)-(eDays(a.start_date)||0));}
-function eOverdueBanner(){const o=eOverdueList();if(!o.length||ENOTBL)return'';const top=o.slice(0,3).map(e=>esc(e.equipment)+(e.serial?' #'+esc(e.serial):'')+' @'+esc(e.hospital)+' ('+eDays(e.start_date)+'일)').join(' · ');return `<div class="notif warn"><i class="bi bi-hourglass-split"></i> 장기 미회수 데모 <b>${o.length}건</b> (60일↑) <span class="muted">${top}${o.length>3?' 외':''}</span><button onclick="setView('estat')">보기</button></div>`;}
+function eOverdueBanner(){const o=eOverdueList();if(!o.length||ENOTBL)return'';const top=o.slice(0,3).map(e=>esc(e.equipment)+(e.serial?' #'+esc(e.serial):'')+' @'+esc(e.hospital)+' ('+eDays(e.start_date)+'일)').join(' · ');const kk=reg(o);return `<div class="notif warn clk" onclick="openRecsK('${kk}','장기 미회수 데모 (60일↑)')"><i class="bi bi-hourglass-split"></i> 장기 미회수 데모 <b>${o.length}건</b> (60일↑) <span class="muted">${top}${o.length>3?' 외':''}</span><button onclick="event.stopPropagation();setView('estat')">보기</button></div>`;}
 
 // ① 캘린더 출하 통합
 let showShip=true;
@@ -538,20 +560,21 @@ function viewEana(){
   A.forEach(e=>{const key=hnorm(e.hospital)+'|'+(e.equipment||'');if(e.kind==='데모'&&e.hospital)demoKeys[key]=1;if(e.kind==='납품'&&e.hospital)buyKeys[key]=1;});
   const demoN=Object.keys(demoKeys).length;let conv=0;Object.keys(demoKeys).forEach(k=>{if(buyKeys[k])conv++;});
   const convRate=demoN?Math.round(conv/demoN*100):0;
-  const byH={};A.forEach(e=>{if(e.handler_type==='운송'&&e.handler)byH[e.handler]=(byH[e.handler]||0)+1;});
-  const hArr=Object.entries(byH).sort((a,b)=>b[1]-a[1]).slice(0,10);const maxH=Math.max(1,...hArr.map(x=>x[1]));
-  const byHo={};A.forEach(e=>{if(e.hospital)byHo[e.hospital]=(byHo[e.hospital]||0)+1;});
-  const hoArr=Object.entries(byHo).sort((a,b)=>b[1]-a[1]).slice(0,12);const maxHo=Math.max(1,...hoArr.map(x=>x[1]));
-  const byK={};A.forEach(e=>{if(e.kind)byK[e.kind]=(byK[e.kind]||0)+1;});
-  const kArr=Object.entries(byK).sort((a,b)=>b[1]-a[1]);const maxK=Math.max(1,...kArr.map(x=>x[1]));
-  const kpis=[{v:A.length.toLocaleString(),l:'총 출하 이력'},{v:conv+' / '+demoN,l:'데모→납품 (병원·장비)',c:'var(--ok)'},{v:convRate+'%',l:'데모 전환율',c:'var(--brand)'},{v:Object.keys(byHo).length.toLocaleString(),l:'거래 병원수'}];
-  return head('📊 출하 분석','데모→납품 전환 · 운송사 · 병원별','')+eNoTblBanner()+eOverdueBanner()
-    +`<div class="grid kpis">${kpis.map(k=>`<div class="kpi"><div class="v" style="color:${k.c||'var(--ink)'}">${k.v}</div><div class="l">${k.l}</div></div>`).join('')}</div>`
+  const convRecs=A.filter(e=>e.kind==='납품'&&e.hospital&&demoKeys[hnorm(e.hospital)+'|'+(e.equipment||'')]);
+  const byH={};A.forEach(e=>{if(e.handler_type==='운송'&&e.handler)(byH[e.handler]=byH[e.handler]||[]).push(e);});
+  const hArr=Object.entries(byH).sort((a,b)=>b[1].length-a[1].length).slice(0,10);const maxH=Math.max(1,...hArr.map(x=>x[1].length));
+  const byHo={};A.forEach(e=>{if(e.hospital)(byHo[e.hospital]=byHo[e.hospital]||[]).push(e);});
+  const hoArr=Object.entries(byHo).sort((a,b)=>b[1].length-a[1].length).slice(0,15);const maxHo=Math.max(1,...hoArr.map(x=>x[1].length));
+  const byK={};A.forEach(e=>{if(e.kind)(byK[e.kind]=byK[e.kind]||[]).push(e);});
+  const kArr=Object.entries(byK).sort((a,b)=>b[1].length-a[1].length);const maxK=Math.max(1,...kArr.map(x=>x[1].length));
+  const kpis=[{v:A.length.toLocaleString(),l:'총 출하 이력',items:A},{v:conv+' / '+demoN,l:'데모→납품 전환건',c:'var(--ok)',items:convRecs},{v:convRate+'%',l:'데모 전환율',c:'var(--brand)',items:convRecs},{v:Object.keys(byHo).length.toLocaleString(),l:'거래 병원수',items:A}];
+  return head('📊 출하 분석','데모→납품 전환 · 운송사 · 병원별 · 숫자·항목 클릭 → 내역','')+eNoTblBanner()+eOverdueBanner()
+    +`<div class="grid kpis">${kpis.map(k=>{const kk=reg(k.items);return `<div class="kpi clk" onclick="openRecsK('${kk}','${esc(k.l)}')"><div class="v" style="color:${k.c||'var(--ink)'}">${k.v}</div><div class="l">${esc(k.l)} <i class="bi bi-list-ul" style="font-size:10px;opacity:.45"></i></div></div>`;}).join('')}</div>`
     +`<div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:14px">
-       <div class="card"><div class="sect"><span>🚚 운송사별 출하</span></div>${hArr.map(([n,v])=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:120px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${v/maxH*100}%;background:#0f766e"></i></div><b style="width:44px;text-align:right">${v}</b></div>`).join('')||'<div class="muted" style="padding:10px">없음</div>'}</div>
-       <div class="card"><div class="sect"><span>🎯 종류 분포</span></div>${kArr.map(([n,v])=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:70px">${eKindChip(n)}</div><div class="bar" style="flex:1"><i style="width:${v/maxK*100}%;background:${eKcol(n)}"></i></div><b style="width:44px;text-align:right">${v}</b></div>`).join('')}</div>
+       <div class="card"><div class="sect"><span>🚚 운송사별 출하 <span class="muted" style="font-weight:400;font-size:11px">· 클릭 → 내역</span></span></div>${hArr.map(([n,arr])=>{const kk=reg(arr);return `<div class="rowbar" onclick="openRecsK('${kk}','운송사 · ${esc(n)}')" style="display:flex;align-items:center;gap:10px;padding:6px 8px"><div style="width:120px;font-size:13px;font-weight:600">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${arr.length/maxH*100}%;background:#0f766e"></i></div><b style="width:44px;text-align:right">${arr.length}</b></div>`;}).join('')||'<div class="muted" style="padding:10px">없음</div>'}</div>
+       <div class="card"><div class="sect"><span>🎯 종류 분포 <span class="muted" style="font-weight:400;font-size:11px">· 클릭 → 내역</span></span></div>${kArr.map(([n,arr])=>{const kk=reg(arr);return `<div class="rowbar" onclick="openRecsK('${kk}','종류 · ${esc(n)}')" style="display:flex;align-items:center;gap:10px;padding:6px 8px"><div style="width:70px">${eKindChip(n)}</div><div class="bar" style="flex:1"><i style="width:${arr.length/maxK*100}%;background:${eKcol(n)}"></i></div><b style="width:44px;text-align:right">${arr.length}</b></div>`;}).join('')}</div>
      </div>
-     <div class="card"><div class="sect"><span>🏥 병원별 이력 (상위)</span></div>${hoArr.map(([n,v])=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:200px;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${v/maxHo*100}%;background:var(--brand)"></i></div><b style="width:40px;text-align:right">${v}</b></div>`).join('')||'<div class="muted" style="padding:10px">없음</div>'}</div></div>`;
+     <div class="card"><div class="sect"><span>🏥 병원별 이력 (상위) <span class="muted" style="font-weight:400;font-size:11px">· 클릭 → 내역</span></span></div>${hoArr.map(([n,arr])=>{const kk=reg(arr);return `<div class="rowbar" onclick="openRecsK('${kk}','병원 · ${esc(n)}')" style="display:flex;align-items:center;gap:10px;padding:6px 8px"><div style="width:200px;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n)}</div><div class="bar" style="flex:1"><i style="width:${arr.length/maxHo*100}%;background:var(--brand)"></i></div><b style="width:40px;text-align:right">${arr.length}</b></div>`;}).join('')||'<div class="muted" style="padding:10px">없음</div>'}</div></div>`;
 }
 
 boot();
