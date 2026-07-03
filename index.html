@@ -947,16 +947,17 @@ function viewHome(){
   }
   const todoH=todos.length?`<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px;margin-bottom:20px">${todos.map(x=>`<div class="kpi clk" style="border-left:4px solid ${x.c}" ${x.act}><div class="v" style="color:${x.c}">${x.n}</div><div class="l">${x.l} <i class="bi bi-arrow-right" style="font-size:10px"></i></div></div>`).join('')}</div>`:`<div class="card" style="text-align:center;color:var(--ok);padding:20px;margin-bottom:20px">✓ 지금 처리 대기 중인 항목이 없습니다</div>`;
   const ownToday=OWN.filter(x=>x.date===t);const em=eByDate(t),tm=TINOTBL?[]:tiByDate(t);
-  const todayBox=(ownToday.length+em.length+tm.length)?`<div class="card" style="margin-bottom:16px"><div class="sect"><span>📅 오늘 움직임 <span class="muted" style="font-weight:400;font-size:11px">${t} · 출하·철수·데모·회수</span></span><span style="margin-left:auto;font-size:12px;color:#2563eb;cursor:pointer" onclick="setView('cal')">통합 캘린더 →</span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px">${ownToday.map(evCard).join('')}${em.map(eEvCard).join('')}${tm.map(tiEvCard).join('')}</div></div>`:'';
+  const todayBox=(ownToday.length+em.length+tm.length)?`<div class="card" style="margin-bottom:16px"><div class="sect"><span>📅 오늘 일정 <span class="muted" style="font-weight:400;font-size:11px">${t} · 출하·철수·데모·회수</span></span><span style="margin-left:auto;font-size:12px;color:#2563eb;cursor:pointer" onclick="setView('cal')">통합 캘린더 →</span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px">${ownToday.map(evCard).join('')}${em.map(eEvCard).join('')}${tm.map(tiEvCard).join('')}</div></div>`:'';
   const fleetSet=Object.keys(FLEET||{}).length>0;  // 보유대수를 실제로 입력한 장비가 있어야 가용 판단 가능
   const avWarn=[];availModels().forEach(m=>{if(FLEET[m]==null)return;const av=FLEET[m]-occupiedOn(m,t);if(av<=0)avWarn.push(m);});
   const avBox=(fleetSet&&avWarn.length)?`<div class="card" style="margin-top:16px"><div class="sect"><span>⚠️ 오늘 데모 불가(가용 0)</span><span style="margin-left:auto;font-size:12px;color:#2563eb;cursor:pointer" onclick="setView('avail')">가용표 →</span></div>${avWarn.map(m=>`<span style="display:inline-block;background:#fee2e2;color:#dc2626;border-radius:8px;padding:4px 10px;font-size:12.5px;font-weight:700;margin:3px 5px 3px 0;cursor:pointer" onclick="setView('avail')">${esc(m)}</span>`).join('')}</div>`:'';
   return head('🎛️ 통합 현황','우리 장비가 지금 어떻게 운용되는지 한눈에 · 숫자·항목 클릭 → 상세',`<button class="btn btn-sm" onclick="openEqAdvSearch()">🔍 상세 검색</button>`)
     +`<div class="card" style="display:flex;gap:10px;align-items:center;margin-bottom:16px;padding:12px 16px;background:linear-gradient(90deg,#f8fafc,#eff6ff)"><span style="font-size:13.5px;font-weight:800;white-space:nowrap">🔎 장비 한 대 찾기</span><input id="asf" class="sel" style="flex:1;min-width:0" placeholder="시리얼 · 모델 · 병원 입력 후 Enter" onkeydown="if(event.key==='Enter')assetSearch(this.value)"><button class="btn btn-primary btn-sm" onclick="assetSearch(document.getElementById('asf').value)">검색</button><button class="btn btn-sm" onclick="openEqAdvSearch()">상세</button></div>`
+    +todayBox
     +kpiRow
     +`<div class="sect">⚡ 처리 대기 <span class="muted" style="font-weight:400;font-size:11px">(클릭 → 처리)</span></div>`+todoH
     +fleetBox
-    +todayBox+avBox;
+    +avBox;
 }
 let _adv={m:'',k:'',h:'',d:''};
 function openEqAdvSearch(){const eqs=[...new Set(EMOVES.map(x=>x.equipment).filter(Boolean))].sort();
