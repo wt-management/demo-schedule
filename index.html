@@ -82,6 +82,8 @@ button{font-family:inherit;cursor:pointer}input,select,textarea{font-family:inhe
 table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line2)}
 th{color:var(--muted);font-weight:600;font-size:11.5px;text-transform:uppercase}
+.card table thead th{position:sticky;top:0;z-index:2;background:#fff}
+.card table thead th[style*="left:0"]{z-index:4}
 tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
 .bar{height:20px;background:#f1f5f9;border-radius:6px;overflow:hidden;min-width:120px}.bar>i{display:block;height:100%;border-radius:6px}
 /* 모달 */
@@ -105,13 +107,13 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
 </head>
 <body>
 <div id="boot-ov"><i class="bi bi-arrow-repeat" style="margin-right:8px"></i>불러오는 중…</div>
-<div id="login"><div class="lc"><h1>🎛️ 장비 통합관리</h1><div style="text-align:center;color:#94a3b8;font-size:13px;margin:4px 0 20px">데모 · 출하 · 보상판매 통합</div><input id="li" type="email" placeholder="이메일"><input id="lp" type="password" placeholder="비밀번호"><button onclick="doLogin()">로그인</button><div id="le" style="color:#b91c1c;font-size:12px;text-align:center;margin-top:8px;display:none">이메일 또는 비밀번호가 올바르지 않습니다.</div></div></div>
+<div id="login"><div class="lc"><h1>🎛️ 장비 통합관리</h1><div style="text-align:center;color:#94a3b8;font-size:13px;margin:4px 0 20px">데모 · 출하 · 보상판매 통합</div><input id="li" type="email" placeholder="이메일" onkeydown="if(event.key==='Enter')doLogin()"><input id="lp" type="password" placeholder="비밀번호" onkeydown="if(event.key==='Enter')doLogin()"><button onclick="doLogin()">로그인</button><div id="le" style="color:#b91c1c;font-size:12px;text-align:center;margin-top:8px;display:none">이메일 또는 비밀번호가 올바르지 않습니다.</div></div></div>
 
 <div id="app">
   <aside id="sidebar">
     <div class="brand"><div class="lg">🎛️</div><div><b>장비 통합관리</b><small>데모·출하·보상 Ops Center</small></div></div>
     <nav class="nav">
-      <a class="active" data-v="home"><span class="ico">🏠</span><span class="lbl">통합 현황</span></a>
+      <a class="active" data-v="home"><span class="ico">🏠</span><span class="lbl">통합 현황</span><span id="home-badge" style="display:none;margin-left:auto;background:#ef4444;color:#fff;border-radius:8px;font-size:9.5px;font-weight:800;padding:1px 6px"></span></a>
       <a data-v="cal"><span class="ico">📅</span><span class="lbl">통합 캘린더</span></a>
       <a data-v="clinic"><span class="ico">🏥</span><span class="lbl">거래처 통합조회</span></a>
       <div class="grp" style="margin-top:14px">데모</div>
@@ -123,7 +125,7 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
       <a data-v="estat"><span class="ico">🖥️</span><span class="lbl">장비·재고</span><span style="margin-left:auto;font-size:9px;color:#94a3b8">현황·자산·실사</span></a>
       <a data-v="elog"><span class="ico">📦</span><span class="lbl">출하 이력</span><span style="margin-left:auto;font-size:9px;color:#94a3b8">이력·분석</span></a>
       <div class="grp" style="margin-top:14px">보상판매</div>
-      <a data-v="tiwork"><span class="ico">♻️</span><span class="lbl">보상판매</span><span style="margin-left:auto;font-size:9px;color:#94a3b8">처리·회수·리퍼</span></a>
+      <a data-v="tiwork"><span class="ico">♻️</span><span class="lbl">보상판매</span><span id="ti-badge" style="display:none;margin-left:auto;background:#ef4444;color:#fff;border-radius:8px;font-size:9.5px;font-weight:800;padding:1px 6px"></span><span style="font-size:9px;color:#94a3b8;margin-left:6px">처리·회수·리퍼</span></a>
     </nav>
     <div class="acct"><div class="row"><div class="av" id="uav">P</div><div style="flex:1;min-width:0"><div class="nm" id="unm">-</div><div class="em" id="uem">-</div></div></div>
       <div class="btns"><button onclick="changePw()"><i class="bi bi-key"></i> 비밀번호</button><button onclick="doLogout()"><i class="bi bi-box-arrow-right"></i> 로그아웃</button></div></div>
@@ -258,7 +260,8 @@ function seedDemo(){OWN=[
 // ── 유틸 ──
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2000);}
 function esc(s){return(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
-function today(){return new Date().toISOString().slice(0,10);}
+function jsAttr(s){return esc(String(s==null?'':s)).replace(/'/g,"\\'");}
+function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function all(){let a=SYNC.concat(OWN);if(fSales)a=a.filter(x=>x.sales===fSales);if(fStatus)a=a.filter(x=>x.status===fStatus);if(fBs)a=a.filter(x=>x.bs===fBs);return a;}
 function bsList(){return[...new Set(SYNC.concat(OWN).map(x=>x.bs).filter(Boolean))].sort();}
 function notifBar(){
@@ -271,7 +274,7 @@ function notifBar(){
 }
 function byDate(d){return all().filter(x=>x.date===d).sort((a,b)=>(a.time||'').localeCompare(b.time||''));}
 function weekStart(ref){const x=new Date(ref);const day=(x.getDay()+6)%7;x.setHours(0,0,0,0);x.setDate(x.getDate()-day);return x;}
-function fmtDate(d){return d.toISOString().slice(0,10);}
+function fmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function salesList(){return[...new Set(all().map(x=>x.sales).filter(Boolean))].sort();}
 function statusChip(s){const S=STATUS[s]||STATUS.planned;return `<span class="chip" style="background:${S.c}22;color:${S.c}"><span class="dot" style="background:${S.c}"></span>${S.n}</span>`;}
 
@@ -425,6 +428,7 @@ function openModal(pre){pre=pre||{};const e=pre.id?pre:{date:pre.date||today(),t
     </div>
     <div class="mf"><div>${editing?`<button class="btn" style="color:var(--bad)" onclick="delEv('${e.id}')">삭제</button>`:''}</div><div><button class="btn" onclick="closeModal()">취소</button><button class="btn btn-primary" onclick="saveEv('${editing?e.id:''}')">저장</button></div></div>`;
   document.getElementById('mbg').style.display='flex';
+  setTimeout(()=>{const f=document.getElementById('f-cust');if(f)f.focus();},0);
 }
 function partsBox(){return _mp.map((p,i)=>`<div class="partrow"><input type="checkbox" ${p.done?'checked':''} onchange="_mp[${i}].done=this.checked;this.nextElementSibling.classList.toggle('done',this.checked)"><input class="pn ${p.done?'done':''}" value="${esc(p.name)}" onchange="_mp[${i}].name=this.value" placeholder="부속품명"><button type="button" class="prx" onclick="mpDel(${i})">×</button></div>`).join('')
   +`<div class="partadd"><input id="mp-new" placeholder="부속품 추가 후 Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();mpAdd();}"><button type="button" class="btn btn-sm" onclick="mpAdd()">추가</button><button type="button" class="btn btn-sm" onclick="mpPreset()">📦 제품 기본</button></div>`;}
@@ -609,8 +613,9 @@ function openEq(id,pre){const e=id?EMOVES.find(x=>x.id===id):null;const v=e||Obj
       ${(function(){const rel=relatedDemo(v.hospital);if(!rel.length)return'';return `<div class="fld"><label>🔗 관련 데모 일정 <span style="font-weight:400;color:var(--muted);font-size:11px">(같은 병원)</span></label>${rel.map(x=>`<div style="display:flex;gap:8px;align-items:center;padding:4px 0;font-size:12.5px"><span style="color:var(--muted);width:78px;flex-shrink:0">${x.date}</span><b style="color:var(--ink)">${esc(x.cust)}</b>${x.product?`<span style="color:#0891b2">${esc(x.product)}</span>`:''}</div>`).join('')}</div>`;})()}
       ${(function(){const rel=relatedTradein(v.hospital);if(!rel.length)return'';return `<div class="fld"><label>🔗 이 거래처 보상판매(회수) <span style="font-weight:400;color:var(--muted);font-size:11px">(트레이드인)</span></label>${rel.map(s=>`<div style="display:flex;gap:8px;align-items:center;padding:4px 0;font-size:12.5px"><span style="color:var(--muted);width:78px;flex-shrink:0">${s.returnDate||'-'}</span><span class="chip" style="background:#ede9fe;color:#6d28d9">회수</span><b style="color:var(--ink)">${esc(s.recovDev)}</b>${s.serial?`<span style="color:var(--muted);font-size:11px">${esc(serN(s.serial))}</span>`:''}${tiUsage(s.usage)}</div>`).join('')}</div>`;})()}
     </div>
-    <div class="mf"><div>${editing?`<button class="btn" style="color:var(--bad)" onclick="delEq('${e.id}')">삭제</button>`:''}${v.serial?` <button class="btn" onclick="openTimeline('${esc(String(v.serial).replace(/'/g,''))}')">📜 이력</button>`:''}</div><div><button class="btn" onclick="closeModal()">취소</button><button class="btn btn-primary" onclick="saveEq('${editing?e.id:''}')">저장</button></div></div>`;
+    <div class="mf"><div>${editing?`<button class="btn" style="color:var(--bad)" onclick="delEq('${e.id}')">삭제</button>`:''}${v.serial?` <button class="btn" onclick="openTimeline('${jsAttr(String(v.serial))}')">📜 이력</button>`:''}</div><div><button class="btn" onclick="closeModal()">취소</button><button class="btn btn-primary" onclick="saveEq('${editing?e.id:''}')">저장</button></div></div>`;
   document.getElementById('mbg').style.display='flex';
+  setTimeout(()=>{const f=document.getElementById('e-eq');if(f)f.focus();},0);
 }
 function eqHospAuto(h){h=(h||'').trim();if(!h)return;const a=document.getElementById('e-addr');if(!a||a.value)return;const m=EMOVES.find(x=>x.hospital===h&&x.address);if(m)a.value=m.address;}
 async function saveEq(id){if(ENOTBL){toast('테이블 없음 — step_equipment_moves.sql 실행 필요');return;}
@@ -741,7 +746,7 @@ function tiQueueBox(){
   }else{
     const rows=rows0.slice().sort((a,b)=>(b.returnDate||'').localeCompare(a.returnDate||''));
     hd='<tr><th>반납일</th><th>거래처</th><th>회수장비</th><th>시리얼</th><th>담당</th><th>현재상태</th><th style="width:150px">처리</th></tr>';
-    body=rows.map(x=>{const s=(x.serial||'').replace(/'/g,'');let act='';
+    body=rows.map(x=>{const s=jsAttr(x.serial||'');let act='';
       if(k==='comp')act=`<button class="btn btn-sm" style="background:#4f46e5;color:#fff;border-color:#4f46e5" onclick="event.stopPropagation();quickSetTI('${s}',{comp:true})">✓ 보상</button>`;
       else if(k==='pay')act=`<button class="btn btn-sm" style="background:#4f46e5;color:#fff;border-color:#4f46e5" onclick="event.stopPropagation();quickSetTI('${s}',{paid:true,payDate:today()})">✓ 입금</button>`;
       else if(k==='usage')act=`<button class="btn btn-sm" style="background:#2563eb;color:#fff;border-color:#2563eb" onclick="event.stopPropagation();quickSetTI('${s}',{usage:'리퍼'})">리퍼</button> <button class="btn btn-sm" onclick="event.stopPropagation();quickSetTI('${s}',{usage:'폐기'})">폐기</button>`;
@@ -854,7 +859,7 @@ function viewTiRefurb(){
 // ═══════════ 장비 가용 (회의실 예약식) ═══════════
 let FLEET={};
 async function loadFleet(){if(DEMO){FLEET={};return;}try{const r=await _sb.from('cons_cache').select('data').eq('key','equip_fleet').maybeSingle();FLEET=(r&&r.data&&r.data.data)||{};}catch(e){FLEET={};}}
-async function setFleet(model,v){const n=parseInt(v,10);if(isNaN(n)||n<0){toast('숫자를 입력하세요');return;}FLEET[model]=n;try{await _sb.from('cons_cache').upsert({key:'equip_fleet',data:FLEET},{onConflict:'key'});}catch(e){toast('저장 실패(테이블/권한 확인)');}render();}
+async function setFleet(model,v){const n=parseInt(v,10);if(isNaN(n)||n<0){toast('숫자를 입력하세요');return;}FLEET[model]=n;let ok=true;try{await _sb.from('cons_cache').upsert({key:'equip_fleet',data:FLEET},{onConflict:'key'});}catch(e){ok=false;toast('저장 실패(테이블/권한 확인)');}render();if(ok)toast('보유 대수 저장됨 ✓');}
 function demoLoans(model){return EMOVES.filter(e=>e.equipment===model&&(e.kind==='데모'||e.kind==='대체')&&e.start_date);}
 function occupiedOn(model,ds){return demoLoans(model).filter(e=>e.start_date<=ds&&(!e.end_date||e.end_date>=ds)).length;}
 function availModels(){const m={};EMOVES.forEach(e=>{if((e.kind==='데모'||e.kind==='대체')&&e.equipment&&e.start_date)m[e.equipment]=(m[e.equipment]||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);}
@@ -885,7 +890,7 @@ function viewAvail(){
   const wd=['일','월','화','수','목','금','토'];
   const models=availModels().slice(0,20);
   const th=`<th style="position:sticky;left:0;background:#eef2f6;z-index:3;min-width:120px;text-align:left">장비</th><th style="position:sticky;left:120px;background:#eef2f6;z-index:3;min-width:52px">보유</th>`+days.map(ds=>{const d=new Date(ds+'T00:00');const isT=ds===today();return `<th style="min-width:36px;text-align:center;${isT?'background:#dbeafe;color:#1d4ed8':''}">${d.getMonth()+1}/${d.getDate()}<div style="font-size:9px;color:${d.getDay()===0?'#dc2626':d.getDay()===6?'#2563eb':'#94a3b8'};font-weight:400">${wd[d.getDay()]}</div></th>`;}).join('');
-  const rows=models.map(m=>{const fleet=fleetOf(m);const set=fleet!=null;const md=m.replace(/'/g,'');
+  const rows=models.map(m=>{const fleet=fleetOf(m);const set=fleet!=null;const md=jsAttr(m);
     const cells=days.map(ds=>{const occ=occupiedOn(m,ds);
       if(!set){const bg=occ>0?'#eff6ff':'#fafafa';const fg=occ>0?'#1d4ed8':'#cbd5e1';return `<td onclick="availCell('${md}','${ds}')" style="text-align:center;cursor:pointer;background:${bg};color:${fg};font-weight:700;font-variant-numeric:tabular-nums" title="데모중 ${occ}대 (보유 미설정 — 가용 계산 안됨)">${occ}</td>`;}
       const av=fleet-occ;const bg=av>0?'#dcfce7':av===0?'#fef3c7':'#fee2e2';const fg=av>0?'#15803d':av===0?'#b45309':'#dc2626';return `<td onclick="availCell('${md}','${ds}')" style="text-align:center;cursor:pointer;background:${bg};color:${fg};font-weight:700;font-variant-numeric:tabular-nums" title="가용 ${av}대 (보유 ${fleet} − 데모중 ${occ})">${av}</td>`;}).join('');
@@ -935,7 +940,7 @@ function viewHome(){
   const kpiRow=`<div class="grid kpis">`+kpi(out.length,'현재 데모중(사외)',out,'#2563eb')+kpi(newShip.length,'이번달 신규 출하',newShip,'#16a34a')+kpi(retM.length,'이번달 철수·회수',retM,'#f59e0b')+kpi(overdueOut.length,'장기 미회수(60일↑)',overdueOut,'#dc2626')+kpi(onb.length,'등록 자산(시리얼)',null,'#0f172a',"setView('inv')")+`</div>`;
   const byModel={};out.forEach(e=>{const m=e.equipment||'(제품 미지정)';(byModel[m]=byModel[m]||[]).push(e);});
   const modelArr=Object.entries(byModel).sort((a,b)=>b[1].length-a[1].length);const maxM=Math.max(1,...modelArr.map(x=>x[1].length));
-  const fleetBox=`<div class="card" style="margin-bottom:16px"><div class="sect"><span>🖥️ 제품군별 데모중 현황 <span class="muted" style="font-weight:400;font-size:11px">지금 사외에 나가있는 장비 · 막대 클릭 → 타임라인</span></span><span style="margin-left:auto;font-size:12px;color:#2563eb;cursor:pointer" onclick="setView('estat')">장비 현황 →</span></div>${modelArr.length?modelArr.map(([m,arr])=>{const ov=arr.filter(e=>(eDays(e.start_date)||0)>60).length;return `<div class="clk" onclick="ganttEq='${m.replace(/'/g,"\\'")}';setView('gantt')" style="display:flex;align-items:center;gap:10px;padding:6px 4px;cursor:pointer"><div style="width:150px;font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m)}</div><div style="flex:1;background:#eef2f6;border-radius:5px;height:15px;overflow:hidden"><i style="display:block;height:100%;width:${arr.length/maxM*100}%;background:#2563eb"></i></div><b style="width:46px;text-align:right;font-size:13px">${arr.length}대</b>${ov?`<span style="font-size:10px;color:#dc2626;background:#fee2e2;border-radius:5px;padding:1px 5px" title="60일↑ 장기 미회수">장기 ${ov}</span>`:'<span style="width:48px;display:inline-block"></span>'}</div>`;}).join(''):'<div class="muted" style="padding:14px">현재 나가있는 장비가 없습니다</div>'}</div>`;
+  const fleetBox=`<div class="card" style="margin-bottom:16px"><div class="sect"><span>🖥️ 제품군별 데모중 현황 <span class="muted" style="font-weight:400;font-size:11px">지금 사외에 나가있는 장비 · 막대 클릭 → 타임라인</span></span><span style="margin-left:auto;font-size:12px;color:#2563eb;cursor:pointer" onclick="setView('estat')">장비 현황 →</span></div>${modelArr.length?modelArr.map(([m,arr])=>{const ov=arr.filter(e=>(eDays(e.start_date)||0)>60).length;return `<div class="clk" onclick="ganttEq='${jsAttr(m)}';setView('gantt')" style="display:flex;align-items:center;gap:10px;padding:6px 4px;cursor:pointer"><div style="width:150px;font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m)}</div><div style="flex:1;background:#eef2f6;border-radius:5px;height:15px;overflow:hidden"><i style="display:block;height:100%;width:${arr.length/maxM*100}%;background:#2563eb"></i></div><b style="width:46px;text-align:right;font-size:13px">${arr.length}대</b>${ov?`<span style="font-size:10px;color:#dc2626;background:#fee2e2;border-radius:5px;padding:1px 5px" title="60일↑ 장기 미회수">장기 ${ov}</span>`:'<span style="width:48px;display:inline-block"></span>'}</div>`;}).join(''):'<div class="muted" style="padding:14px">현재 나가있는 장비가 없습니다</div>'}</div>`;
   const todos=[];
   if(overdueDemo.length)todos.push({l:'데모 결과 미기록',n:overdueDemo.length,c:'#dc2626',act:`onclick="openRecsK('${reg(overdueDemo)}','데모 결과 미기록')"`});
   if(overdueOut.length)todos.push({l:'장기 미회수 데모 (60일↑)',n:overdueOut.length,c:'#ea580c',act:`onclick="openRecsK('${reg(overdueOut)}','장기 미회수 데모')"`});
@@ -992,7 +997,7 @@ function viewClinic(){
     (TI.items||[]).forEach(x=>{if(!x.clinic)return;const e=ent(x.clinic);e.ti++;if(x.rep)e.hands[x.rep]=(e.hands[x.rep]||0)+1;if((x.returnDate||'')>e.last)e.last=x.returnDate||'';});
     const arr=Object.entries(m).map(([n,v])=>{const h=Object.entries(v.hands).sort((a,b)=>b[1]-a[1])[0];return {n,demo:v.demo,equip:v.equip,ti:v.ti,total:v.demo+v.equip+v.ti,hand:h?h[0]:'',last:v.last,out:v.out};}).sort((a,b)=>b.total-a.total);
     const totalN=arr.length;const cap=arr.slice(0,500);const dot='<span style="color:#cbd5e1">·</span>';
-    const rows=cap.map(x=>`<tr class="clk" onclick="_clinicSel='${x.n.replace(/'/g,"\\'")}';render()">
+    const rows=cap.map(x=>`<tr class="clk" onclick="_clinicSel='${jsAttr(x.n)}';render()">
       <td><b style="color:var(--ink)">${esc(x.n)}</b>${x.out?` <span style="background:#dbeafe;color:#1d4ed8;border-radius:6px;padding:1px 6px;font-size:10.5px;font-weight:700;margin-left:5px">🔵 데모중 ${x.out}</span>`:''}</td>
       <td style="color:#334155;white-space:nowrap">${x.hand?esc(x.hand):dot}</td>
       <td style="color:var(--muted);white-space:nowrap">${x.last||'-'}</td>
@@ -1083,7 +1088,7 @@ function viewInv(){
     +`<div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>모델·품목</th><th>분류</th><th>위치</th><th style="text-align:right">수량</th><th style="text-align:right">단가</th><th style="text-align:right">금액</th></tr></thead><tbody>${qrows}</tbody></table></div>`
     +`</div>`;
 }
-function openAsset(i){const a=_asnap[i];if(!a)return;const ov=(INV.assets&&INV.assets[a.serial])||{};const sk=a.serial.replace(/'/g,"\\'");const sts=['','창고','데모중','수리중','리퍼','폐기'];const dc=invUnitCost(a.model,'');
+function openAsset(i){const a=_asnap[i];if(!a)return;const ov=(INV.assets&&INV.assets[a.serial])||{};const sk=jsAttr(a.serial);const sts=['','창고','데모중','수리중','리퍼','폐기'];const dc=invUnitCost(a.model,'');
   document.getElementById('modal').classList.remove('recs');
   document.getElementById('modal').innerHTML=`<div class="mh"><h3>자산 · ${esc(serN(a.serial))}</h3><button class="x" onclick="closeModal()">×</button></div>
     <div class="mb"><div class="muted" style="font-size:12px;margin-bottom:10px">이동이력 기준 자동상태: ${invStChip(a.status)} · 위치 ${esc(a.location)||'-'} · 최근 ${a.lastDate||'-'} ${esc(a.lastKind)}${a.src==='move'?` · <span style="color:#2563eb;cursor:pointer;text-decoration:underline dotted" onclick="closeModal();openTimeline('${sk}')">전체 이력</span>`:''}</div>
@@ -1265,7 +1270,7 @@ function viewGantt(){
     const short=gr.filter(x=>!x.d.isLong).sort((a,b)=>a.d.days-b.d.days);
     const long=gr.filter(x=>x.d.isLong).sort((a,b)=>b.d.days-a.d.days);
     const collapsed=!!_ganttCol[mn];
-    body+=`<tr onclick="ganttToggle('${mn.replace(/'/g,"\\'")}')" style="cursor:pointer;background:#eef2f6"><td colspan="${cols}" style="padding:0;position:sticky;left:0"><div style="${stick};padding:7px 12px;display:flex;align-items:center;gap:8px"><i class="bi bi-chevron-${collapsed?'right':'down'}" style="font-size:10px;color:#64748b"></i><span style="width:11px;height:11px;border-radius:3px;background:${modelColor(mn)};display:inline-block;flex-shrink:0"></span><b style="font-size:13px;color:#0f172a">${esc(mn)}</b><span style="font-size:11px;color:#64748b">${gr.length}대${long.length?` · <span style="color:#9a3412">장기 ${long.length}</span>`:''}</span></div></td></tr>`;
+    body+=`<tr onclick="ganttToggle('${jsAttr(mn)}')" style="cursor:pointer;background:#eef2f6"><td colspan="${cols}" style="padding:0;position:sticky;left:0"><div style="${stick};padding:7px 12px;display:flex;align-items:center;gap:8px"><i class="bi bi-chevron-${collapsed?'right':'down'}" style="font-size:10px;color:#64748b"></i><span style="width:11px;height:11px;border-radius:3px;background:${modelColor(mn)};display:inline-block;flex-shrink:0"></span><b style="font-size:13px;color:#0f172a">${esc(mn)}</b><span style="font-size:11px;color:#64748b">${gr.length}대${long.length?` · <span style="color:#9a3412">장기 ${long.length}</span>`:''}</span></div></td></tr>`;
     if(!collapsed){short.forEach(x=>{body+=unitRow(x.r,false);});
       if(long.length){body+=`<tr style="background:#fff7ed"><td colspan="${cols}" style="padding:0"><div style="${stick};padding:3px 12px 3px 24px;font-size:10.5px;color:#9a3412;font-weight:700">🕐 1개월 이상 장기 데모 (${long.length}대)</div></td></tr>`;long.forEach(x=>{body+=unitRow(x.r,true);});}
     }
