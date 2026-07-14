@@ -148,18 +148,7 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       <div class="brand"><div class="lg">🎛️</div><div><b>장비 통합관리</b><small>데모·출하·보상 Ops Center</small></div></div>
       <div class="hdr-r">
         <div class="sw-wrap"><button class="hbtn" onclick="ddToggle('swdd')"><i class="bi bi-grid-3x3-gap-fill"></i> 사이트 이동</button>
-          <div class="dd" id="swdd">
-            <div class="sw-item" onclick="goSite('https://wt-management.github.io/wontech/total.html')"><span class="sw-badge" style="background:#4f46e5">종합</span><span style="flex:1">전사 종합 경영현황</span></div>
-            <div class="sw-item" onclick="goSite('https://wt-management.github.io/wontech/','&app=korea')"><span class="sw-badge" style="background:#0891b2">KR</span><span style="flex:1">한국 영업</span></div>
-            <div class="sw-item" onclick="goSite('https://wt-management.github.io/wontech-intl/')"><span class="sw-badge" style="background:#0d9488">INT</span><span style="flex:1">해외 영업</span></div>
-            <div class="sw-item" onclick="goSite('https://wt-management.github.io/wtj-management/')"><span class="sw-badge" style="background:#f59e0b">JP</span><span style="flex:1">일본법인 관리</span></div>
-            <div class="sw-item" onclick="goSite('https://wt-management.github.io/wt-corps/us.html')"><span class="sw-badge" style="background:#1e3a8a">US</span><span style="flex:1">미국법인 관리</span></div>
-            <div class="sw-item" onclick="goSite('https://wt-management.github.io/wt-corps/th.html')"><span class="sw-badge" style="background:#b45309">TH</span><span style="flex:1">태국법인 관리</span></div>
-            <div class="sw-item" onclick="goSite('https://wt-management.github.io/wt-consumables/')"><span class="sw-badge" style="background:#16a34a">일보</span><span style="flex:1">일일매출보고</span></div>
-            <div class="sw-item" onclick="goSite('https://wt-management.github.io/sales-portfolio/')"><span class="sw-badge" style="background:#3f5e7a">PF</span><span style="flex:1">Sales Portfolio</span></div>
-            <div class="sw-item cur"><span class="sw-badge" style="background:#2563eb">장비</span><span style="flex:1">장비 통합관리</span><i class="bi bi-check2"></i></div>
-            <div class="sw-item" onclick="goSite('https://wt-management.github.io/wontech/#app=admin')"><span class="sw-badge" style="background:#6b7280">ADM</span><span style="flex:1">관리자 페이지</span></div>
-          </div></div>
+          <div class="dd" id="swdd"><!-- 사이트 목록은 _wtRenderSwitcher()가 권한 기반으로 동적 렌더 --></div></div>
         <div class="sw-wrap"><button class="acctbtn" onclick="ddToggle('acctdd')"><span class="av" id="uav">P</span><span class="who"><span class="nm" id="unm">-</span><span class="em" id="uem">-</span></span><i class="bi bi-chevron-down" style="font-size:10px;color:var(--muted)"></i></button>
           <div class="dd" id="acctdd"><button onclick="changePw()"><i class="bi bi-key"></i> 비밀번호 변경</button><button onclick="doLogout()"><i class="bi bi-box-arrow-right"></i> 로그아웃</button></div></div>
       </div>
@@ -260,6 +249,51 @@ async function changePw(){const np=prompt('새 비밀번호 (6자 이상)');if(n
 async function goSite(url,extra){try{const{data:{session:s}}=await _sb.auth.getSession();if(s&&url.indexOf('#')<0)url+='#at='+encodeURIComponent(s.access_token)+'&rt='+encodeURIComponent(s.refresh_token)+(extra||'');else if(extra)url+=(url.indexOf('#')<0?'#':'&')+String(extra).replace(/^[#&]+/,'');}catch(e){}location.href=url;}
 function ddToggle(id){const el=document.getElementById(id);if(!el)return;const wasOpen=el.classList.contains('open');document.querySelectorAll('.dd.open').forEach(d=>d.classList.remove('open'));if(!wasOpen)el.classList.add('open');}
 document.addEventListener('click',e=>{if(!e.target.closest('.sw-wrap'))document.querySelectorAll('.dd.open').forEach(d=>d.classList.remove('open'));});
+
+/* ===== 권한 기반 사이트 이동 (site_registry 공통) — WT_SWITCHER ===== */
+var _WT_MASTER='pmw0406@gmail.com';
+var _WT_OWN=["equip","demo"];                 /* 이 사이트 자신의 registry key(들) */
+var _WT_WONTECH='https://wt-management.github.io/wontech/';
+var _wtReg=null, _wtItems=[];
+async function _wtLoadReg(){ if(_wtReg) return _wtReg; try{ var r=await _sb.from('site_registry').select('*').order('sort_order'); _wtReg=r.data||[]; }catch(e){ _wtReg=[]; } return _wtReg; }
+function _wtVis(s,ac,ad){ if(ac.indexOf(s.key)>=0) return true; if(s.admin_bypass&&ad) return true; if(s.extra_visible_rule){ try{ return !!(new Function('access','isAdmin','return ('+s.extra_visible_rule+')'))(ac,ad); }catch(e){ return false; } } return false; }
+async function _wtGo(i){
+  var s=_wtItems[i]; if(!s) return;
+  var u=(s.key==='korea'||s.url==='LOCAL')?_WT_WONTECH:s.url;
+  var extra=s.key==='korea'?'&app=korea':(s.key==='admin'?'&app=admin':'');
+  var sess=null; try{ sess=(await _sb.auth.getSession()).data.session; }catch(e){}
+  if(sess && u.indexOf('#')<0) u+='#at='+encodeURIComponent(sess.access_token)+'&rt='+encodeURIComponent(sess.refresh_token);
+  u+=extra; location.href=u;
+}
+async function _wtRenderSwitcher(){
+  await _wtLoadReg();
+  var ac=[], ad=false;
+  try{ var ses=(await _sb.auth.getSession()).data.session;
+    if(ses&&ses.user){ if(ses.user.email===_WT_MASTER) ad=true;
+      var p=await _sb.from('crm_profiles').select('access,role').eq('id',ses.user.id).maybeSingle();
+      if(p&&p.data){ ac=(p.data.access||'').split(',').map(function(x){return x.trim();}).filter(Boolean); if(p.data.role==='admin') ad=true; }
+    }
+  }catch(e){}
+  var seen={};
+  _wtItems=_wtReg.filter(function(s){
+    if(_WT_OWN.indexOf(s.key)>=0) return false;
+    if(!_wtVis(s,ac,ad)) return false;
+    var dest=(s.key==='korea'||s.url==='LOCAL')?'wontech':s.url; if(seen[dest]) return false; seen[dest]=1;
+    return true;
+  }).sort(function(a,b){ return a.key==='total'?-1:(b.key==='total'?1:(a.sort_order-b.sort_order)); });
+  if(ad){ _wtItems.push({key:'admin',badge:'ADM',grad_from:'#6b7280',title:'관리자 페이지',url:_WT_WONTECH}); }
+  var esc=function(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+  var box=document.querySelector("#swdd"); if(!box) return;
+  if("div"==='select'){
+    box.innerHTML='<option value="">사이트 이동…</option>'+_wtItems.map(function(s,i){ return '<option value="'+i+'">'+esc(s.badge)+' · '+esc(s.title)+'</option>'; }).join('');
+    box.onchange=function(){ var v=box.value; if(v!=='') _wtGo(+v); };
+  } else {
+    box.innerHTML=_wtItems.map(function(s,i){
+      return '<div class="sw-item" onclick="_wtGo('+i+')"><span class="sw-badge" style="background:'+(s.grad_from||'#64748b')+'">'+esc(s.badge)+'</span><span style="flex:1">'+esc(s.title)+'</span><i class="bi bi-arrow-right" style="font-size:11px;opacity:.5"></i></div>';
+    }).join('');
+  }
+}
+
 async function enter(user){
   ME=user.email||'';document.getElementById('uem').textContent=ME;document.getElementById('unm').textContent=(ME.split('@')[0]||'사용자');document.getElementById('uav').textContent=(ME[0]||'P').toUpperCase();
   // 접근 게이트: 장비 통합관리 = access 'equip' 포함 OR role admin OR master 만 진입(그 외 중앙으로)
@@ -277,7 +311,7 @@ async function enter(user){
 function afterLoad(){if(DEMO&&!SYNC.length)seedSync();if(!lastSeen())markSeenSilent();document.getElementById('boot-ov').style.display='none';document.getElementById('app').style.display='block';
   const raw=(location.hash||'').replace(/^#/,'');const v=VIEWS.indexOf(raw)>=0?raw:'home';
   if(raw!==v){try{history.replaceState(null,'','#'+v);}catch(e){}}  // SSO 토큰 등 뷰가 아닌 해시는 URL에서 정리(보안)
-  applyView(v);}
+  applyView(v);try{_wtRenderSwitcher();}catch(e){}}
 function mapOwn(r){return{id:r.id,date:r.date,time:r.time||'',cust:r.cust||'',sales:r.sales||'',bs:r.bs||'',product:r.product||'',content:r.content||'',demo_type:r.demo_type||'신규',status:r.status||'planned',outcome:r.outcome||'',follow_up:r.follow_up||'',attendees:r.attendees||'',parts:Array.isArray(r.parts)?r.parts:[],created_at:r.created_at||'',source:'direct'};}
 
 // ── localStorage 데모 ──
