@@ -235,9 +235,9 @@ async function boot(){let{data}=await _sb.auth.getSession();
   if(!(data&&data.session)){await new Promise(r=>setTimeout(r,500));({data}=await _sb.auth.getSession());}  // 세션 복원 지연 대비 1회 재시도(새로고침 시 로그인 튕김 방지)
   if(data&&data.session)await enter(data.session.user);
   else if(location.hostname==='localhost'||location.hostname==='127.0.0.1'){DEMO=true;ME='demo@local';document.getElementById('uem').textContent=ME;document.getElementById('unm').textContent='demo';document.getElementById('uav').textContent='D';document.getElementById('demo-banner').classList.remove('hidden');OWN=lsGet();if(!OWN.length)seedDemo();afterLoad();}
-  else location.href=CENTRAL;}
+  else location.replace(CENTRAL);}  // 히스토리 오염·핑퐁 방지
 async function doLogin(){const e=(document.getElementById('li').value||'').trim(),p=(document.getElementById('lp').value||'').trim();const er=document.getElementById('le');er.style.display='none';const{data,error}=await _sb.auth.signInWithPassword({email:e,password:p});if(error){er.style.display='block';return;}await enter(data.user);}
-async function doLogout(){await _sb.auth.signOut();Object.keys(localStorage).filter(k=>k.startsWith('sb-')).forEach(k=>localStorage.removeItem(k));location.href=CENTRAL;}
+async function doLogout(){await _sb.auth.signOut();try{sessionStorage.removeItem('dsched_page');sessionStorage.removeItem('demo_cnt_draft');}catch(e){}Object.keys(localStorage).filter(k=>k.startsWith('sb-')).forEach(k=>localStorage.removeItem(k));location.href=CENTRAL;}
 /* ── 자동 로그아웃: 30분 무동작 시 (마스터 제외) ── */
 (function(){var IDLE_MS=30*60*1000,_it;
   function _logout(){if(typeof doLogout==='function'){doLogout();return;}try{_sb.auth.signOut().then(function(){location.href=CENTRAL;});}catch(e){location.href=CENTRAL;}}
@@ -297,7 +297,7 @@ async function _wtRenderSwitcher(){
 async function enter(user){
   ME=user.email||'';document.getElementById('uem').textContent=ME;document.getElementById('unm').textContent=(ME.split('@')[0]||'사용자');document.getElementById('uav').textContent=(ME[0]||'P').toUpperCase();
   // 접근 게이트: 장비 통합관리 = access 'equip' 포함 OR role admin OR master 만 진입(그 외 중앙으로)
-  if(!(await equipAllowed(user))){location.href=CENTRAL;return;}
+  if(!(await equipAllowed(user))){location.replace(CENTRAL);return;}
   // 단방향 연동: 여기서 만든 데모만 영업사이트(wontech 일정)에 반영됨(wontech이 demo_schedules를 읽음).
   // 영업사이트에서 올린 데모는 여기 반영 안 함 → logs 미조회(SYNC 비움).
   SYNC=[];
@@ -309,8 +309,13 @@ async function enter(user){
   afterLoad();
 }
 function afterLoad(){if(DEMO&&!SYNC.length)seedSync();if(!lastSeen())markSeenSilent();document.getElementById('boot-ov').style.display='none';document.getElementById('app').style.display='block';
-  const raw=(location.hash||'').replace(/^#/,'');const v=VIEWS.indexOf(raw)>=0?raw:'home';
-  if(raw!==v){try{history.replaceState(null,'','#'+v);}catch(e){}}  // SSO 토큰 등 뷰가 아닌 해시는 URL에서 정리(보안)
+  // 초기 페이지: ① 유효 딥링크 해시 > ② 새로고침/뒤로가기 진입이면 sessionStorage 저장 페이지 > ③ 기본 home
+  const raw=(location.hash||'').replace(/^#/,'');let v=VIEWS.indexOf(raw)>=0?raw:'';
+  if(!v){let nt='';try{const en=performance.getEntriesByType('navigation');nt=(en&&en[0]&&en[0].type)||'';}catch(e){}
+    if(nt==='reload'||nt==='back_forward'){try{const sv=sessionStorage.getItem('dsched_page');if(sv&&VIEWS.indexOf(sv)>=0)v=sv;}catch(e){}}}
+  if(!v)v='home';
+  try{history.replaceState({p:v},'','#'+v);}catch(e){}  // SSO 토큰 등 뷰가 아닌 해시 정리(보안) + state seed(여분 엔트리·null state 트랩 방지)
+  try{const d=JSON.parse(sessionStorage.getItem('demo_cnt_draft')||'null');if(d&&d.date===today()&&Array.isArray(d.lines)){_cnt=d;toast('진행 중이던 재고 실사를 복원했습니다');}else if(d){sessionStorage.removeItem('demo_cnt_draft');}}catch(e){}
   applyView(v);try{_wtRenderSwitcher();}catch(e){}}
 function mapOwn(r){return{id:r.id,date:r.date,time:r.time||'',cust:r.cust||'',sales:r.sales||'',bs:r.bs||'',product:r.product||'',content:r.content||'',demo_type:r.demo_type||'신규',status:r.status||'planned',outcome:r.outcome||'',follow_up:r.follow_up||'',attendees:r.attendees||'',parts:Array.isArray(r.parts)?r.parts:[],created_at:r.created_at||'',source:'direct'};}
 
@@ -360,10 +365,22 @@ const NAVMAP={inv:'estat',stock:'estat',eana:'elog',tilist:'tiwork',tirefurb:'ti
 const VIEWS=['home','clinic','cal','gantt','list','stats','elog','estat','avail','eana','inv','stock','tiwork','tilist','tirefurb'];
 function navKey(v){return NAVMAP[v]||v;}
 function setNavActive(v){const k=navKey(v);document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.v===k));}
-function applyView(v){if(VIEWS.indexOf(v)<0)v='home';curView=v;setNavActive(v);const mbg=document.getElementById('mbg');if(mbg&&mbg.style.display==='flex')closeModal();render();window.scrollTo(0,0);}
-// 해시 기반 라우팅: 뒤로가기/새로고침에 현재 화면 유지
-function setView(v){if(VIEWS.indexOf(v)<0)v='home';const h='#'+v;if(location.hash===h)applyView(v);else location.hash=h;/* hashchange→applyView */}
-window.addEventListener('hashchange',function(){const h=(location.hash||'').replace(/^#/,'');if(VIEWS.indexOf(h)>=0)applyView(h);});
+function applyView(v){if(VIEWS.indexOf(v)<0)v='home';curView=v;try{sessionStorage.setItem('dsched_page',v);}catch(e){}setNavActive(v);const mbg=document.getElementById('mbg');if(mbg&&mbg.style.display==='flex')closeModal();render();window.scrollTo(0,0);}
+// 히스토리 라우팅(WT_NAV): 뒤로가기/새로고침에 현재 화면 유지 · 같은 키 중복 push 금지
+function setView(v,push){if(VIEWS.indexOf(v)<0)v='home';
+  if(push!==false&&!(history.state&&history.state.p===v)){try{history.pushState({p:v},'','#'+v);}catch(e){}}
+  applyView(v);}
+window.addEventListener('popstate',function(e){
+  const mbg=document.getElementById('mbg');
+  if(mbg&&mbg.style.display==='flex'){closeModal();try{history.pushState({p:curView},'','#'+curView);}catch(err){}return;}  // 모바일 뒤로가기=모달 닫기(소모된 엔트리 복구)
+  if(document.querySelector('.dd.open')){document.querySelectorAll('.dd.open').forEach(d=>d.classList.remove('open'));try{history.pushState({p:curView},'','#'+curView);}catch(err){}return;}
+  if(e.state&&e.state.p&&VIEWS.indexOf(e.state.p)>=0){applyView(e.state.p);return;}
+  // state 없는 엔트리: 주소창 해시 직접입력 등 유효 딥링크면 반영(replaceState로 seed), 그 외 무시 — pushState로 되밀지 않음(무한 트랩 방지)
+  const h=(location.hash||'').replace(/^#/,'');
+  if(VIEWS.indexOf(h)>=0){try{history.replaceState({p:h},'','#'+h);}catch(err){}applyView(h);}
+});
+// bfcache 복원: 로그아웃/만료 후 뒤로가기로 이전 계정 화면 노출 차단(세션 유효하면 화면 유지)
+window.addEventListener('pageshow',function(e){if(e.persisted){_sb.auth.getSession().then(function(r){var s=r&&r.data&&r.data.session;if(!s||(ME&&ME!=='demo@local'&&s.user&&s.user.email!==ME))location.reload();});}});
 function equipTabs(cur){const T=[['estat','🖥️ 운영 현황'],['inv','📦 재고·자산대장'],['stock','✅ 재고 실사']];return `<div class="seg" style="margin-bottom:14px">${T.map(([v,l])=>`<button class="${cur===v?'on':''}" onclick="setView('${v}')">${l}</button>`).join('')}</div>`;}
 function shipTabs(cur){const T=[['elog','📜 출하 이력'],['eana','📊 출하 분석']];return `<div class="seg" style="margin-bottom:14px">${T.map(([v,l])=>`<button class="${cur===v?'on':''}" onclick="setView('${v}')">${l}</button>`).join('')}</div>`;}
 function tiTabs(cur){const T=[['tiwork','📥 처리 현황'],['tilist','📋 회수 내역'],['tirefurb','♻️ 리퍼 재고']];return `<div class="seg" style="margin-bottom:14px">${T.map(([v,l])=>`<button class="${cur===v?'on':''}" onclick="setView('${v}')">${l}</button>`).join('')}</div>`;}
@@ -1206,21 +1223,22 @@ function dlInvCsv(){const asOf=invAsOfVal();const A=assetSnapshot(asOf).filter(x
 
 // ── 재고 실사(stocktake) ──
 let _cnt=null;
+function cntSave(){try{if(_cnt)sessionStorage.setItem('demo_cnt_draft',JSON.stringify(_cnt));else sessionStorage.removeItem('demo_cnt_draft');}catch(e){}}  // 실사 진행분 초안 보존(새로고침 유실 방지)
 function startCount(){const asOf=invAsOfVal();const A=assetSnapshot(asOf).filter(x=>x.onbook);
   const lines=A.map(x=>({kind:'serial',model:x.model,serial:x.serial,location:x.location,status:x.status,expected:1,counted:null,result:'',note:''}));
   (INV.qty||[]).forEach(q=>lines.push({kind:'qty',model:q.model,serial:'',location:q.location||'',status:'수량재고',expected:Number(q.qty)||0,counted:null,result:'',note:''}));
-  _cnt={asOf,date:today(),lines,extra:[],q:''};setView('stock');}
-function cntMark(i,r){if(!_cnt)return;const l=_cnt.lines[i];l.result=(l.result===r?'':r);if(l.result==='확인'&&l.kind==='serial')l.counted=1;if(l.result==='미발견')l.counted=0;render();}
-function cntQtyVal(i,v){if(!_cnt)return;const l=_cnt.lines[i];l.counted=v===''?null:Number(v);l.result=v===''?'':(Number(v)===l.expected?'확인':(Number(v)<l.expected?'부족':'초과'));render();}
-function cntNote(i,v){if(_cnt)_cnt.lines[i].note=v;}
-function cntAddExtra(){if(!_cnt)return;const s=prompt('장부에 없는데 실물이 발견된 자산 — 시리얼/품목명');if(!s)return;const m=prompt('모델명(선택)')||'';_cnt.extra.push({serial:s,model:m,note:''});render();}
-function cntDelExtra(i){if(_cnt){_cnt.extra.splice(i,1);render();}}
+  _cnt={asOf,date:today(),lines,extra:[],q:''};cntSave();setView('stock');}
+function cntMark(i,r){if(!_cnt)return;const l=_cnt.lines[i];l.result=(l.result===r?'':r);if(l.result==='확인'&&l.kind==='serial')l.counted=1;if(l.result==='미발견')l.counted=0;cntSave();render();}
+function cntQtyVal(i,v){if(!_cnt)return;const l=_cnt.lines[i];l.counted=v===''?null:Number(v);l.result=v===''?'':(Number(v)===l.expected?'확인':(Number(v)<l.expected?'부족':'초과'));cntSave();render();}
+function cntNote(i,v){if(_cnt){_cnt.lines[i].note=v;cntSave();}}
+function cntAddExtra(){if(!_cnt)return;const s=prompt('장부에 없는데 실물이 발견된 자산 — 시리얼/품목명');if(!s)return;const m=prompt('모델명(선택)')||'';_cnt.extra.push({serial:s,model:m,note:''});cntSave();render();}
+function cntDelExtra(i){if(_cnt){_cnt.extra.splice(i,1);cntSave();render();}}
 function cntStat(lines,extra){const s={total:lines.length,ok:0,diff:0,miss:0,todo:0,extra:(extra||[]).length};lines.forEach(l=>{if(l.result==='확인')s.ok++;else if(l.result==='미발견')s.miss++;else if(l.result==='불일치'||l.result==='부족'||l.result==='초과')s.diff++;else s.todo++;});return s;}
 function statusResult(r){const c=r==='확인'?'#16a34a':r==='미발견'?'#dc2626':'#b45309';return `<span class="chip" style="background:${c}22;color:${c}">${esc(r)}</span>`;}
 async function saveCount(){if(!_cnt)return;const marked=_cnt.lines.filter(l=>l.result).length;if(!marked&&!_cnt.extra.length){toast('확인 표시된 항목이 없습니다');return;}
   const rec={id:uid(),date:_cnt.date,asOf:_cnt.asOf,by:ME,at:nowISO(),lines:_cnt.lines.map(l=>({kind:l.kind,model:l.model,serial:l.serial,location:l.location,expected:l.expected,counted:l.counted,result:l.result,note:l.note})),extra:_cnt.extra.slice(),note:(document.getElementById('cnt-note')||{}).value||''};
-  INV.counts=INV.counts||[];INV.counts.unshift(rec);const ok=await saveInv();if(!ok){INV.counts.shift();return;}_cnt=null;render();toast('실사 결과 저장됨 ✓');}
-function cancelCount(){if(confirm('진행 중인 실사를 취소할까요? (저장 안 됨)')){_cnt=null;render();}}
+  INV.counts=INV.counts||[];INV.counts.unshift(rec);const ok=await saveInv();if(!ok){INV.counts.shift();return;}_cnt=null;cntSave();render();toast('실사 결과 저장됨 ✓');}
+function cancelCount(){if(confirm('진행 중인 실사를 취소할까요? (저장 안 됨)')){_cnt=null;cntSave();render();}}
 function viewStock(){
   if(_cnt){const S=cntStat(_cnt.lines,_cnt.extra);const q=_cnt.q||'';
     let L=_cnt.lines.map((l,i)=>({l,i}));if(q){const qq=q.toLowerCase();L=L.filter(o=>((o.l.serial||'')+(o.l.model||'')+(o.l.location||'')).toLowerCase().indexOf(qq)>=0);}
@@ -1230,9 +1248,9 @@ function viewStock(){
     const extraRows=(_cnt.extra||[]).map((e,i)=>`<tr style="background:#eff6ff"><td><b>${esc(e.serial)}</b> <span style="font-size:9px;background:#dbeafe;color:#1d4ed8;border-radius:4px;padding:0 4px">신규발견</span><div class="muted" style="font-size:11px">${esc(e.model)}</div></td><td colspan=2 class="muted">장부에 없던 실물</td><td><button class="btn btn-sm" onclick="cntDelExtra(${i})">삭제</button></td></tr>`).join('');
     return head('✅ 재고 실사 진행중',`기준일 ${_cnt.asOf} · 실물을 하나씩 확인하며 체크 · 저장하면 감사용 실사기록으로 남습니다`,`<button class="btn" onclick="cancelCount()">취소</button><button class="btn btn-primary" onclick="saveCount()">💾 실사 저장</button>`)
       +`<div class="grid kpis" style="margin-bottom:12px"><div class="kpi"><div class="v">${S.total}</div><div class="l">장부 대상</div></div><div class="kpi"><div class="v" style="color:#16a34a">${S.ok}</div><div class="l">확인</div></div><div class="kpi"><div class="v" style="color:#dc2626">${S.miss}</div><div class="l">미발견</div></div><div class="kpi"><div class="v" style="color:#b45309">${S.diff}</div><div class="l">수량 불일치</div></div><div class="kpi"><div class="v" style="color:#2563eb">${S.extra}</div><div class="l">신규 발견</div></div><div class="kpi"><div class="v">${S.todo}</div><div class="l">미확인</div></div></div>`
-      +`<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap"><input class="sel" style="width:220px" placeholder="🔍 시리얼·모델·위치로 찾기" value="${esc(q)}" onchange="_cnt.q=this.value;render()"><button class="btn btn-sm" onclick="cntAddExtra()">+ 장부에 없는 실물 발견</button><span class="muted" style="font-size:12px">진행 ${S.total?Math.round((S.ok+S.miss+S.diff)/S.total*100):0}%</span></div>`
+      +`<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap"><input class="sel" style="width:220px" placeholder="🔍 시리얼·모델·위치로 찾기" value="${esc(q)}" onchange="_cnt.q=this.value;cntSave();render()"><button class="btn btn-sm" onclick="cntAddExtra()">+ 장부에 없는 실물 발견</button><span class="muted" style="font-size:12px">진행 ${S.total?Math.round((S.ok+S.miss+S.diff)/S.total*100):0}%</span></div>`
       +`<div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>자산</th><th>위치</th><th style="text-align:center">실사</th><th>메모</th></tr></thead><tbody>${extraRows}${rows}</tbody></table></div>`
-      +`<div style="margin-top:12px"><textarea id="cnt-note" class="sel" style="width:100%" rows="2" placeholder="실사 총평·특이사항(선택)"></textarea></div></div>`;
+      +`<div style="margin-top:12px"><textarea id="cnt-note" class="sel" style="width:100%" rows="2" placeholder="실사 총평·특이사항(선택)" onchange="if(_cnt){_cnt.note=this.value;cntSave();}">${esc(_cnt.note||'')}</textarea></div></div>`;
   }
   const counts=INV.counts||[];
   const hist=counts.map(c=>{const S=cntStat(c.lines,c.extra);return `<tr class="clk" onclick="openCount('${c.id}')"><td><b>${c.date}</b><div class="muted" style="font-size:11px">기준 ${c.asOf||c.date}</div></td><td>${esc((c.by||'').split('@')[0])}</td><td style="text-align:right">${S.total}</td><td style="text-align:right;color:#16a34a">${S.ok}</td><td style="text-align:right;color:#dc2626">${S.miss}</td><td style="text-align:right;color:#b45309">${S.diff}</td><td style="text-align:right;color:#2563eb">${S.extra}</td><td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.note||'')}</td></tr>`;}).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:26px">아직 실사 기록이 없습니다. "새 실사 시작"으로 첫 실사를 진행하세요.</td></tr>';
