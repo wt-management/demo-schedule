@@ -198,6 +198,8 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 const SB_URL='https://mhfacbsittfdkknwybhc.supabase.co',SB_KEY='sb_publishable_aPMOOWAlyJlMcP1ZM_gpPA_jlrcvCRd';
 const _sb=supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
 const CENTRAL='https://wt-management.github.io/wontech/';
+/* 중앙 로그인으로 이동(세션 없음). ret에는 해시를 절대 포함하지 않음 — #at/rt 토큰 유출·오염 방지 */
+function _goCentralWithRet(){location.replace(CENTRAL+'#ret='+encodeURIComponent(location.origin+location.pathname+location.search));}
 const STATUS={planned:{n:'예정',c:'#2563eb'},done:{n:'완료',c:'#16a34a'},canceled:{n:'취소',c:'#94a3b8'},noshow:{n:'노쇼',c:'#dc2626'}};
 const DTYPE=['신규','재데모','온라인','기타'];
 let ME='',DEMO=false,curView='home',calMode='week',refDate=new Date();
@@ -235,7 +237,7 @@ async function boot(){let{data}=await _sb.auth.getSession();
   if(!(data&&data.session)){await new Promise(r=>setTimeout(r,500));({data}=await _sb.auth.getSession());}  // 세션 복원 지연 대비 1회 재시도(새로고침 시 로그인 튕김 방지)
   if(data&&data.session)await enter(data.session.user);
   else if(location.hostname==='localhost'||location.hostname==='127.0.0.1'){DEMO=true;ME='demo@local';document.getElementById('uem').textContent=ME;document.getElementById('unm').textContent='demo';document.getElementById('uav').textContent='D';document.getElementById('demo-banner').classList.remove('hidden');OWN=lsGet();if(!OWN.length)seedDemo();afterLoad();}
-  else location.replace(CENTRAL);}  // 히스토리 오염·핑퐁 방지
+  else _goCentralWithRet();}  // 세션 없음 → 중앙 로그인(복귀용 ret 동봉) · replace로 히스토리 오염·핑퐁 방지
 async function doLogin(){const e=(document.getElementById('li').value||'').trim(),p=(document.getElementById('lp').value||'').trim();const er=document.getElementById('le');er.style.display='none';const{data,error}=await _sb.auth.signInWithPassword({email:e,password:p});if(error){er.style.display='block';return;}await enter(data.user);}
 async function doLogout(){await _sb.auth.signOut();try{sessionStorage.removeItem('dsched_page');sessionStorage.removeItem('demo_cnt_draft');}catch(e){}Object.keys(localStorage).filter(k=>k.startsWith('sb-')).forEach(k=>localStorage.removeItem(k));location.href=CENTRAL;}
 /* ── 자동 로그아웃: 30분 무동작 시 (마스터 제외) ── */
