@@ -195,20 +195,20 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       <div class="nav-section">
         <a class="nav-link active" data-v="home"><i class="bi bi-grid-1x2-fill"></i><span class="lbl">통합 현황</span><span id="home-badge" class="nav-badge" style="display:none"></span></a>
       </div>
-      <div class="nav-section"><div class="nav-label">데모 시연</div>
+      <div class="nav-section"><div class="nav-label">데모</div>
         <a class="nav-link" data-v="cal"><i class="bi bi-calendar-week"></i><span class="lbl">캘린더</span></a>
         <a class="nav-link" data-v="list"><i class="bi bi-list-check"></i><span class="lbl">데모 일정</span></a>
         <a class="nav-link" data-v="clinic"><i class="bi bi-hospital"></i><span class="lbl">거래처</span></a>
         <a class="nav-link" data-v="avail"><i class="bi bi-calendar2-check"></i><span class="lbl">가용 예약</span></a>
-        <a class="nav-link" data-v="gantt"><i class="bi bi-bar-chart-steps"></i><span class="lbl">타임라인</span></a>
-        <a class="nav-link" data-v="stats"><i class="bi bi-graph-up"></i><span class="lbl">통계</span></a>
       </div>
-      <div class="nav-section"><div class="nav-label">장비 · 출하</div>
+      <div class="nav-section"><div class="nav-label">장비 · 물류</div>
         <a class="nav-link" data-v="estat"><i class="bi bi-pc-display"></i><span class="lbl">장비 · 재고</span></a>
         <a class="nav-link" data-v="elog"><i class="bi bi-box-seam"></i><span class="lbl">출하 이력</span></a>
-      </div>
-      <div class="nav-section"><div class="nav-label">보상판매</div>
         <a class="nav-link" data-v="tiwork"><i class="bi bi-arrow-repeat"></i><span class="lbl">보상판매</span><span id="ti-badge" class="nav-badge" style="display:none"></span></a>
+      </div>
+      <div class="nav-section"><div class="nav-label">분석</div>
+        <a class="nav-link" data-v="gantt"><i class="bi bi-bar-chart-steps"></i><span class="lbl">타임라인</span></a>
+        <a class="nav-link" data-v="stats"><i class="bi bi-graph-up"></i><span class="lbl">통계</span></a>
       </div>
     </div>
     <div class="side-foot">
@@ -1133,12 +1133,12 @@ function viewHome(){
   const modelArr=Object.entries(byModel).sort((a,b)=>b[1].length-a[1].length);const maxM=Math.max(1,...modelArr.map(x=>x[1].length));
   const fleetBox=`<div class="card" style="margin-bottom:16px"><div class="sect"><span>🖥️ 제품군별 데모중 현황 <span class="muted" style="font-weight:400;font-size:11px">지금 사외에 나가있는 장비 · 막대 클릭 → 타임라인</span></span><span style="margin-left:auto;font-size:12px;color:#2563eb;cursor:pointer" onclick="setView('estat')">장비 현황 →</span></div>${modelArr.length?modelArr.map(([m,arr])=>{const ov=arr.filter(e=>(eDays(e.start_date)||0)>60).length;return `<div class="clk" onclick="ganttEq='${jsAttr(m)}';setView('gantt')" style="display:flex;align-items:center;gap:10px;padding:6px 4px;cursor:pointer"><div style="width:150px;font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m)}</div><div style="flex:1;background:#eef2f6;border-radius:5px;height:15px;overflow:hidden"><i style="display:block;height:100%;width:${arr.length/maxM*100}%;background:#2563eb"></i></div><b style="width:46px;text-align:right;font-size:13px">${arr.length}대</b>${ov?`<span style="font-size:10px;color:#dc2626;background:#fee2e2;border-radius:5px;padding:1px 5px" title="60일↑ 장기 미회수">장기 ${ov}</span>`:'<span style="width:48px;display:inline-block"></span>'}</div>`;}).join(''):'<div class="muted" style="padding:14px">현재 나가있는 장비가 없습니다</div>'}</div>`;
   const todos=[];
-  if(overdueDemo.length)todos.push({l:'데모 결과 미기록',n:overdueDemo.length,c:'#dc2626',act:`onclick="openRecsK('${reg(overdueDemo)}','데모 결과 미기록')"`});
-  if(overdueOut.length)todos.push({l:'장기 미회수 데모 (60일↑)',n:overdueOut.length,c:'#ea580c',act:`onclick="openRecsK('${reg(overdueOut)}','장기 미회수 데모')"`});
+  if(overdueDemo.length)todos.push({l:'데모 결과 미기록',n:overdueDemo.length,c:'#f59e0b',act:`onclick="openRecsK('${reg(overdueDemo)}','데모 결과 미기록')"`});
+  if(overdueOut.length)todos.push({l:'장기 미회수 데모 (60일↑)',n:overdueOut.length,c:'#dc2626',act:`onclick="openRecsK('${reg(overdueOut)}','장기 미회수 데모')"`});
   if(!TINOTBL){
     if(tiComp.length)todos.push({l:'보상 미처리',n:tiComp.length,c:'#f59e0b',act:`onclick="goTiQ('comp')"`});
-    if(tiPay.length)todos.push({l:'입금 대기',n:tiPay.length,c:'#ef4444',act:`onclick="goTiQ('pay')"`});
-    if(tiUse.length)todos.push({l:'활용 미정',n:tiUse.length,c:'#eab308',act:`onclick="goTiQ('usage')"`});
+    if(tiPay.length)todos.push({l:'입금 대기',n:tiPay.length,c:'#dc2626',act:`onclick="goTiQ('pay')"`});
+    if(tiUse.length)todos.push({l:'활용 미정',n:tiUse.length,c:'#f59e0b',act:`onclick="goTiQ('usage')"`});
     if(tiUncol.length)todos.push({l:'미회수 트레이드인',n:tiUncol.length,c:'#dc2626',act:`onclick="goTiQ('uncol')"`});
   }
   const todoH=todos.length?`<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px;margin-bottom:20px">${todos.map(x=>`<div class="kpi clk" style="border-left:4px solid ${x.c}" ${x.act}><div class="v" style="color:${x.c}">${x.n}</div><div class="l">${x.l} <i class="bi bi-arrow-right" style="font-size:10px"></i></div></div>`).join('')}</div>`:`<div class="card" style="text-align:center;color:var(--ok);padding:20px;margin-bottom:20px">✓ 지금 처리 대기 중인 항목이 없습니다</div>`;
@@ -1157,11 +1157,10 @@ function viewHome(){
     +'<div style="text-align:center;cursor:pointer" onclick="setView(\'cal\')"><div style="font-size:23px;font-weight:800;color:#2563eb;line-height:1">'+(em.length+tm.length)+'</div><div style="font-size:10.5px;color:#5b7591;margin-top:3px">오늘 출하·회수</div></div>'
     +'<div style="text-align:center"><div style="font-size:23px;font-weight:800;color:'+(_pend?'#dc2626':'#16a34a')+';line-height:1">'+_pend+'</div><div style="font-size:10.5px;color:#5b7591;margin-top:3px">처리 대기</div></div>'
     +'</div></div>';
-  return head('🎛️ 통합 현황','우리 장비가 지금 어떻게 운용되는지 한눈에 · 숫자·항목 클릭 → 상세',`<button class="btn btn-sm" onclick="openEqAdvSearch()">🔍 상세 검색</button>`)
+  return head('🎛️ 통합 현황','오늘 할 일과 장비 운용 현황을 한눈에 · 숫자·항목 클릭 → 상세',`<button class="btn btn-sm" onclick="openEqAdvSearch()">🔍 상세 검색</button>`)
     +_hero
+    +(todos.length?(`<div class="sect" style="margin:4px 0 10px">⚡ 처리 대기 <span class="muted" style="font-weight:400;font-size:11px">클릭 → 바로 처리</span></div>`+todoH):'')
     +todayBox
-    +kpiRow
-    +`<div class="sect">⚡ 처리 대기 <span class="muted" style="font-weight:400;font-size:11px">(클릭 → 처리)</span></div>`+todoH
     +fleetBox
     +avBox;
 }
