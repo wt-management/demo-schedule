@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
-:root{--bg:#f0f4f8;--card:#fff;--line:#e7eaf0;--line2:#f1f3f5;--ink:#0f172a;--body:#475569;--muted:#94a3b8;--brand:#0d9488;--brand-strong:#0f766e;--brand-soft:#f0fdfa;--ok:#16a34a;--bad:#dc2626;--warn:#f59e0b;--sh:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.05)}
+:root{--bg:#f0f4f8;--card:#fff;--line:#e7eaf0;--line2:#f1f3f5;--ink:#0f172a;--body:#475569;--muted:#94a3b8;--brand:#0d9488;--brand-strong:#0f766e;--brand-soft:#f0fdfa;--ok:#16a34a;--bad:#dc2626;--warn:#f59e0b;--sh:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.05);--hero-grad:linear-gradient(135deg,#eef5ff 0%,#f7fbff 55%,#eafaf6 130%);--hero-ink:#1c2534;--hero-sub:#5b7591;--hero-line:rgba(15,42,67,.1);--hero-accent:#0f766e;--r-lg:16px;--sh-2:0 8px 24px rgba(15,23,42,.10)}
 html{color-scheme:light}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;background:var(--bg);color:var(--body);font-size:14px;-webkit-font-smoothing:antialiased;letter-spacing:-.1px}
@@ -159,6 +159,24 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
 .drow:last-child{border-bottom:0}
 .drow:hover{background:#f8fafc}
 @media(max-width:1080px){.dash{grid-template-columns:1fr}}
+/* ── 스코어보드 히어로 (종합매출 통일) ── */
+.scoreboard{background:var(--hero-grad);border-radius:var(--r-lg);padding:16px 20px 14px;color:var(--hero-ink);margin-bottom:16px;box-shadow:var(--sh-2)}
+.sb-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:11px;flex-wrap:wrap}
+.sb-title{font-size:13.5px;font-weight:800;color:var(--hero-ink);letter-spacing:-.2px;display:flex;align-items:center;gap:7px}
+.sb-title i{color:var(--hero-accent)}
+.sb-note{font-size:11.5px;color:var(--hero-sub);display:flex;align-items:center;gap:9px}
+.sb-ack{background:var(--hero-accent);color:#fff;border:0;border-radius:7px;padding:4px 11px;font-size:11px;font-weight:700;cursor:pointer}
+.sb-grid{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr 1.2fr;gap:0}
+.sb-cell{padding:2px 18px 2px;border-left:1px solid var(--hero-line);min-width:0}
+.sb-cell:first-child{padding-left:2px;border-left:none}
+.sb-l{font-size:11px;font-weight:600;color:var(--hero-sub);display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-l i{color:var(--hero-accent)}
+.sb-v{font-size:2.3rem;font-weight:800;line-height:1.05;margin:4px 0 1px;color:var(--hero-ink);letter-spacing:-1.2px}
+.sb-cell.sm .sb-v{font-size:1.65rem}
+.sb-s{font-size:11px;color:var(--hero-sub)}
+.sb-cell.clk{cursor:pointer;border-radius:10px;transition:background .15s}
+.sb-cell.clk:hover{background:rgba(148,163,184,.12)}
+@media(max-width:820px){.sb-grid{grid-template-columns:1fr 1fr;gap:14px 0}.sb-cell{border-left:none;padding-left:2px}.sb-cell:nth-child(even){border-left:1px solid var(--hero-line);padding-left:16px}.sb-v{font-size:1.7rem}}
 </style>
 <script>/* WT_ERRLOG_V1 rev3 — 공통 오류수집+요청함 (자동주입 스니펫, 개별 수정 금지) */
 (function(){
@@ -418,7 +436,7 @@ function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()
 function all(){let a=SYNC.concat(OWN);if(fSales)a=a.filter(x=>x.sales===fSales);if(fStatus)a=a.filter(x=>x.status===fStatus);if(fBs)a=a.filter(x=>x.bs===fBs);return a;}
 function bsList(){return[...new Set(SYNC.concat(OWN).map(x=>x.bs).filter(Boolean))].sort();}
 function notifBar(){
-  if(['elog','estat','eana','inv','stock','avail'].indexOf(curView)>=0)return'';  // 장비·재고 계열 페이지엔 데모 알림 숨김
+  if(['home','elog','estat','eana','inv','stock','avail'].indexOf(curView)>=0)return'';  // 홈=스코어보드가 대체, 장비계열=데모알림 숨김
   const nwArr=OWN.filter(isNew);const overArr=all().filter(x=>x.status==='planned'&&x.date<today());
   let h='';
   if(nwArr.length){const kk=reg(nwArr);h+=`<div class="notif new clk" onclick="openRecsK('${kk}','새로 추가된 데모')"><i class="bi bi-bell-fill"></i> 새로 추가된 데모 <b>${nwArr.length}건</b> <span class="muted">— 클릭 → 내역 · <span class="newbadge">NEW</span></span><button onclick="event.stopPropagation();markSeen()">확인</button></div>`;}
@@ -1157,13 +1175,17 @@ function viewHome(){
   var _nm=(typeof ME!=='undefined'&&ME)?ME.split('@')[0]:'';var _h=new Date().getHours();var _greet=_h<11?'좋은 아침이에요':_h<18?'안녕하세요':'오늘도 수고 많으세요';
   var _pend=todos.reduce(function(a,x){return a+(x.n||0);},0);
   var _urgent=overdueOut.length?('⚠️ 장기 미회수 '+overdueOut.length+'건 — 회수를 챙기세요'):(overdueDemo.length?('데모 결과 '+overdueDemo.length+'건 미기록'):(_pend?('처리 대기 '+_pend+'건이 있어요'):'지금 급한 처리 항목은 없어요 ✓'));
-  var _hero='<div class="card" style="background:linear-gradient(135deg,#eef5ff,#f7fbff 55%,#eafaf6);border:1px solid #e1e9f3;padding:15px 18px;margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">'
-    +'<div style="flex:1;min-width:190px"><div style="font-size:16.5px;font-weight:800;color:#1c2534">'+_greet+(_nm?', <span style="color:#0f766e">'+esc(_nm)+'</span>님':'')+' 👋</div><div style="font-size:12px;color:#5b7591;margin-top:3px">'+t+' · '+_urgent+'</div></div>'
-    +'<div style="display:flex;gap:20px;flex-wrap:wrap">'
-    +'<div style="text-align:center;cursor:pointer" onclick="setView(\'cal\')"><div style="font-size:23px;font-weight:800;color:#0f766e;line-height:1">'+todayDemo.length+'</div><div style="font-size:10.5px;color:#5b7591;margin-top:3px">오늘 데모</div></div>'
-    +'<div style="text-align:center;cursor:pointer" onclick="setView(\'cal\')"><div style="font-size:23px;font-weight:800;color:#2563eb;line-height:1">'+(em.length+tm.length)+'</div><div style="font-size:10.5px;color:#5b7591;margin-top:3px">오늘 출하·회수</div></div>'
-    +'<div style="text-align:center"><div style="font-size:23px;font-weight:800;color:'+(_pend?'#dc2626':'#16a34a')+';line-height:1">'+_pend+'</div><div style="font-size:10.5px;color:#5b7591;margin-top:3px">처리 대기</div></div>'
-    +'</div></div>';
+  var _dn0=['일','월','화','수','목','금','토'];var _wt=(function(){var d=new Date(t+'T00:00');return isNaN(d)?'':_dn0[d.getDay()];})();
+  var nwArr=(typeof OWN!=='undefined'?OWN:[]).filter(isNew);
+  var _hero='<section class="scoreboard">'
+    +'<div class="sb-head"><span class="sb-title"><i class="bi bi-lightning-charge-fill"></i> '+_greet+(_nm?', '+esc(_nm)+'님':'')+'</span><span class="sb-note"><span>'+t+' ('+_wt+') · '+_urgent+'</span>'+(nwArr.length?'<button class="sb-ack" onclick="event.stopPropagation();markSeen()">새 데모 확인</button>':'')+'</span></div>'
+    +'<div class="sb-grid">'
+      +'<div class="sb-cell clk" onclick="setView(\'cal\')"><div class="sb-l"><i class="bi bi-calendar-check"></i>오늘 데모</div><div class="sb-v">'+todayDemo.length+'</div><div class="sb-s">건 예정</div></div>'
+      +'<div class="sb-cell sm clk" onclick="setView(\'cal\')"><div class="sb-l"><i class="bi bi-truck"></i>오늘 출하·회수</div><div class="sb-v">'+(em.length+tm.length)+'</div><div class="sb-s">건</div></div>'
+      +'<div class="sb-cell sm"><div class="sb-l"><i class="bi bi-lightning-charge"></i>처리 대기</div><div class="sb-v" style="color:'+(_pend?'#dc2626':'#15803d')+'">'+_pend+'</div><div class="sb-s">건</div></div>'
+      +'<div class="sb-cell sm clk" onclick="setView(\'elog\')"><div class="sb-l"><i class="bi bi-hourglass-split"></i>장기 미회수</div><div class="sb-v" style="color:'+(overdueOut.length?'#dc2626':'var(--hero-ink)')+'">'+overdueOut.length+'</div><div class="sb-s">60일↑</div></div>'
+      +'<div class="sb-cell sm'+(nwArr.length||overdueDemo.length?' clk':'')+'" '+(nwArr.length?'onclick="openRecsK(\''+reg(nwArr)+'\',\'새로 추가된 데모\')"':(overdueDemo.length?'onclick="openRecsK(\''+reg(overdueDemo)+'\',\'결과 미입력 데모\')"':''))+'><div class="sb-l"><i class="bi bi-bell"></i>새 데모 · 미입력</div><div class="sb-v">'+nwArr.length+'</div><div class="sb-s">'+(overdueDemo.length?'결과 미입력 '+overdueDemo.length+'건':'최신 상태 ✓')+'</div></div>'
+    +'</div></section>';
   // ── 위젯: 다가오는 데모 ──
   var _dn=['일','월','화','수','목','금','토'];
   var upc=all().filter(function(x){return x.date>=t&&x.status!=='done'&&x.status!=='canceled';}).sort(function(a,b){return (a.date||'').localeCompare(b.date||'')||(a.time||'').localeCompare(b.time||'');}).slice(0,10);
