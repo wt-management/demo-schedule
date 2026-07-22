@@ -11,42 +11,59 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--line:#e8ebf0;--line2:#f1f3f5;--ink:#0f172a;--body:#475569;--muted:#94a3b8;--brand:#4f46e5;--ok:#16a34a;--bad:#dc2626;--warn:#f59e0b;--sh:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.05)}
+:root{--bg:#f0f4f8;--card:#fff;--line:#e7eaf0;--line2:#f1f3f5;--ink:#0f172a;--body:#475569;--muted:#94a3b8;--brand:#0d9488;--brand-strong:#0f766e;--brand-soft:#f0fdfa;--ok:#16a34a;--bad:#dc2626;--warn:#f59e0b;--sh:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.05)}
+html{color-scheme:light}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;background:var(--bg);color:var(--body);font-size:14px;-webkit-font-smoothing:antialiased;letter-spacing:-.1px}
 button{font-family:inherit;cursor:pointer}input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink)}
 .hidden{display:none!important}
 #boot-ov{position:fixed;inset:0;background:#0f172a;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:14px;z-index:200}
 #app{display:none}
-/* 헤더 */
-.hdr{position:sticky;top:0;z-index:40;background:rgba(255,255,255,.85);backdrop-filter:saturate(180%) blur(12px);border-bottom:1px solid var(--line)}
-.hdr-in{max-width:1560px;margin:0 auto;padding:13px 24px;display:flex;align-items:center;gap:16px}
-.brand{display:flex;align-items:center;gap:11px}
-.brand .lg{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#4f46e5,#6366f1);display:flex;align-items:center;justify-content:center;font-size:19px;box-shadow:0 5px 14px rgba(79,70,229,.32)}
-.brand b{color:var(--ink);font-size:15px;font-weight:800;display:block;line-height:1.1}.brand small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
-.hdr-r{margin-left:auto;display:flex;align-items:center;gap:10px}
-.sw-wrap{position:relative}
-.hbtn{background:#f4f5f7;border:1px solid var(--line);border-radius:10px;padding:9px 13px;color:var(--body);font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px}
-.hbtn:hover{background:#eceef2;color:var(--ink)}
-.acctbtn{background:transparent;border:1px solid var(--line);border-radius:12px;padding:5px 11px 5px 5px;display:flex;align-items:center;gap:8px}
-.acctbtn:hover{background:#f8fafc}
-.acctbtn .av{width:31px;height:31px;border-radius:50%;background:linear-gradient(135deg,#ff5722,#ff8a50);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
-.acctbtn .who{text-align:left;line-height:1.25}.acctbtn .nm{font-size:12.5px;font-weight:700;color:var(--ink);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.acctbtn .em{font-size:10px;color:var(--muted);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dd{display:none;position:absolute;top:116%;right:0;background:#fff;border:1px solid var(--line);border-radius:13px;box-shadow:0 14px 38px rgba(16,24,40,.15);z-index:50;padding:6px;min-width:220px}
-.dd.open{display:block}
-.dd button{width:100%;text-align:left;background:transparent;border:0;border-radius:9px;padding:10px 11px;font-size:13px;color:var(--body);font-weight:600;display:flex;align-items:center;gap:9px}
-.dd button:hover{background:#f4f5f7;color:var(--ink)}
-.sw-item{border-radius:9px;padding:9px 10px;display:flex;align-items:center;gap:10px;color:var(--body);font-size:12.5px;cursor:pointer;font-weight:600}
-.sw-item:hover{background:#f4f5f7;color:var(--ink)}.sw-item.cur{background:#eef2ff;color:var(--brand)}
-.sw-badge{display:inline-flex;align-items:center;justify-content:center;min-width:27px;height:19px;color:#fff;border-radius:6px;font-size:10px;font-weight:700;padding:0 5px;flex-shrink:0}
-/* 가로 탭 nav */
-.nav{max-width:1560px;margin:0 auto;padding:0 14px;display:flex;gap:1px;overflow-x:auto;scrollbar-width:none}
-.nav::-webkit-scrollbar{display:none}
-.nav a{display:flex;align-items:center;gap:7px;padding:12px 14px 13px;font-size:13.5px;font-weight:600;color:var(--muted);border-bottom:2.5px solid transparent;white-space:nowrap;cursor:pointer;transition:color .12s}
-.nav a .ico{font-size:15px;line-height:1}
-.nav a:hover{color:var(--ink)}
-.nav a.active{color:var(--brand);border-bottom-color:var(--brand)}
-#main{max-width:1560px;margin:0 auto;min-height:60vh}
+/* ── 사이드바 셸 (라이트 · 틸, 전 사이트 통일) ── */
+.sidebar{position:fixed;top:0;left:0;width:222px;height:100vh;background:#f1f5f9;color:#334155;border-right:1px solid #d8e0ea;box-shadow:3px 0 16px rgba(16,42,67,.06);z-index:100;display:flex;flex-direction:column}
+.brand{padding:15px 15px 12px;border-bottom:1px solid #e4e8ef;display:flex;align-items:center;gap:10px}
+.brand .lg{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#0d9488,#14b8a6);display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 5px 14px rgba(13,148,136,.3);flex-shrink:0}
+.brand b{color:#1c2534;font-size:14.5px;font-weight:800;display:block;line-height:1.15}.brand small{display:block;color:#64748b;font-size:10.5px;margin-top:1px}
+.nav-scroll{flex:1;overflow-y:auto;min-height:0;padding:7px 0 4px}
+.nav-scroll::-webkit-scrollbar{width:0}
+.nav-section{padding:2px 8px}
+.nav-label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.7px;padding:9px 10px 3px}
+.nav-link{display:flex;align-items:center;gap:10px;padding:7px 11px;border-radius:8px;color:#475569;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;transition:background .13s,color .13s}
+.nav-link:hover{background:#e5ebf2;color:#1c2534}
+.nav-link.active{background:#dbf0ec;color:#0f766e;font-weight:700}
+.nav-link i{font-size:15px;width:18px;text-align:center;flex-shrink:0}
+.nav-link .lbl{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-badge{margin-left:auto;background:#ef4444;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px}
+.side-foot{padding:9px 10px 4px;border-top:1px solid #e4e8ef}
+.side-acct{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.side-acct .av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
+.side-acct .who{min-width:0;flex:1}
+.side-acct .nm{font-size:12px;font-weight:700;color:#1c2534;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-acct .em{font-size:10px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-btns{display:flex;gap:4px}
+.side-btns button{flex:1;background:#fff;border:1px solid #d5dde8;border-radius:7px;padding:6px 0;color:#475569;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:4px}
+.side-btns button:hover{background:#eef5f4;border-color:#9fd4cd;color:#0f766e}
+.sw-wrap{position:relative;padding:8px 10px 10px}
+.swbtn{width:100%;background:#fff;border:1px solid #d5dde8;border-radius:8px;padding:7px 10px;color:#475569;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}
+.swbtn:hover{background:#eef5f4;border-color:#9fd4cd;color:#0f766e}
+#swdd{display:none;position:absolute;bottom:104%;left:10px;right:10px;background:#fff;border:1px solid #e4e8ef;border-radius:10px;box-shadow:0 -8px 24px rgba(16,42,67,.16);z-index:200;padding:6px;max-height:56vh;overflow-y:auto}
+#swdd.open{display:block}
+.sw-item{border-radius:7px;padding:8px 10px;display:flex;align-items:center;gap:9px;color:#475569;font-size:12px;cursor:pointer;font-weight:600}
+.sw-item:hover{background:#eef2f7;color:#1c2534}.sw-item.cur{background:#dbf0ec;color:#0f766e}
+.sw-badge{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:18px;color:#fff;border-radius:5px;font-size:10px;font-weight:700;padding:0 5px;flex-shrink:0}
+#main{margin-left:222px;min-height:100vh}
+/* 모바일 드로어 */
+#m-topbar,#m-backdrop{display:none}
+@media(max-width:860px){
+  .sidebar{transform:translateX(-100%);transition:transform .25s ease;width:min(84vw,290px);box-shadow:2px 0 22px rgba(0,0,0,.28);z-index:300}
+  .sidebar.open{transform:translateX(0)}
+  #main{margin-left:0;padding-top:52px}
+  #m-topbar{display:flex;align-items:center;gap:10px;position:fixed;top:0;left:0;right:0;height:52px;background:#fff;color:#1c2534;padding:0 8px;z-index:150;box-shadow:0 2px 10px rgba(16,42,67,.1);border-bottom:1px solid #e4e8ef}
+  #m-topbar .m-burger{background:none;border:none;color:#334155;font-size:24px;padding:4px 8px}
+  #m-topbar .m-title{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #m-backdrop.open{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:250}
+  body{overflow-x:hidden}
+}
 .topbar{padding:24px 24px 4px;display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap}
 .topbar h2{font-size:22px;font-weight:800;color:var(--ink);letter-spacing:-.3px}
 .topbar .desc{color:var(--muted);font-size:12.5px;margin-top:4px}
@@ -144,29 +161,37 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 <div id="login"><div class="lc"><h1>🎛️ 장비 통합관리</h1><div style="text-align:center;color:#94a3b8;font-size:13px;margin:4px 0 20px">데모 · 출하 · 보상판매 통합</div><input id="li" type="email" placeholder="이메일" onkeydown="if(event.key==='Enter')doLogin()"><input id="lp" type="password" placeholder="비밀번호" onkeydown="if(event.key==='Enter')doLogin()"><button onclick="doLogin()">로그인</button><div id="le" style="color:#b91c1c;font-size:12px;text-align:center;margin-top:8px;display:none">이메일 또는 비밀번호가 올바르지 않습니다.</div></div></div>
 
 <div id="app">
-  <header class="hdr">
-    <div class="hdr-in">
-      <div class="brand"><div class="lg">🎛️</div><div><b>장비 통합관리</b><small>데모·출하·보상 Ops Center</small></div></div>
-      <div class="hdr-r">
-        <div class="sw-wrap"><button class="hbtn" onclick="ddToggle('swdd')"><i class="bi bi-grid-3x3-gap-fill"></i> 사이트 이동</button>
-          <div class="dd" id="swdd"><!-- 사이트 목록은 _wtRenderSwitcher()가 권한 기반으로 동적 렌더 --></div></div>
-        <div class="sw-wrap"><button class="acctbtn" onclick="ddToggle('acctdd')"><span class="av" id="uav">P</span><span class="who"><span class="nm" id="unm">-</span><span class="em" id="uem">-</span></span><i class="bi bi-chevron-down" style="font-size:10px;color:var(--muted)"></i></button>
-          <div class="dd" id="acctdd"><button onclick="changePw()"><i class="bi bi-key"></i> 비밀번호 변경</button><button onclick="doLogout()"><i class="bi bi-box-arrow-right"></i> 로그아웃</button></div></div>
+  <div id="m-topbar"><button class="m-burger" onclick="toggleNav()" aria-label="메뉴"><i class="bi bi-list"></i></button><span class="m-title" id="m-title">통합 현황</span></div>
+  <div id="m-backdrop" onclick="toggleNav(false)"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><div class="lg">🎛️</div><div><b>장비 통합관리</b><small>데모·출하·보상</small></div></div>
+    <div class="nav-scroll">
+      <div class="nav-section">
+        <a class="nav-link active" data-v="home"><i class="bi bi-grid-1x2-fill"></i><span class="lbl">통합 현황</span><span id="home-badge" class="nav-badge" style="display:none"></span></a>
+      </div>
+      <div class="nav-section"><div class="nav-label">데모 시연</div>
+        <a class="nav-link" data-v="cal"><i class="bi bi-calendar-week"></i><span class="lbl">캘린더</span></a>
+        <a class="nav-link" data-v="list"><i class="bi bi-list-check"></i><span class="lbl">데모 일정</span></a>
+        <a class="nav-link" data-v="clinic"><i class="bi bi-hospital"></i><span class="lbl">거래처</span></a>
+        <a class="nav-link" data-v="avail"><i class="bi bi-calendar2-check"></i><span class="lbl">가용 예약</span></a>
+        <a class="nav-link" data-v="gantt"><i class="bi bi-bar-chart-steps"></i><span class="lbl">타임라인</span></a>
+        <a class="nav-link" data-v="stats"><i class="bi bi-graph-up"></i><span class="lbl">통계</span></a>
+      </div>
+      <div class="nav-section"><div class="nav-label">장비 · 출하</div>
+        <a class="nav-link" data-v="estat"><i class="bi bi-pc-display"></i><span class="lbl">장비 · 재고</span></a>
+        <a class="nav-link" data-v="elog"><i class="bi bi-box-seam"></i><span class="lbl">출하 이력</span></a>
+      </div>
+      <div class="nav-section"><div class="nav-label">보상판매</div>
+        <a class="nav-link" data-v="tiwork"><i class="bi bi-arrow-repeat"></i><span class="lbl">보상판매</span><span id="ti-badge" class="nav-badge" style="display:none"></span></a>
       </div>
     </div>
-    <nav class="nav">
-      <a class="active" data-v="home"><span class="ico">🏠</span><span class="lbl">통합 현황</span><span id="home-badge" style="display:none;margin-left:auto;background:#ef4444;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px"></span></a>
-      <a data-v="cal"><span class="ico">📅</span><span class="lbl">캘린더</span></a>
-      <a data-v="clinic"><span class="ico">🏥</span><span class="lbl">거래처</span></a>
-      <a data-v="list"><span class="ico">📋</span><span class="lbl">데모 일정</span></a>
-      <a data-v="avail"><span class="ico">🗓️</span><span class="lbl">가용 예약</span></a>
-      <a data-v="gantt"><span class="ico">📊</span><span class="lbl">타임라인</span></a>
-      <a data-v="stats"><span class="ico">📈</span><span class="lbl">통계</span></a>
-      <a data-v="estat"><span class="ico">🖥️</span><span class="lbl">장비·재고</span></a>
-      <a data-v="elog"><span class="ico">📦</span><span class="lbl">출하 이력</span></a>
-      <a data-v="tiwork"><span class="ico">♻️</span><span class="lbl">보상판매</span><span id="ti-badge" style="display:none;margin-left:auto;background:#ef4444;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px"></span></a>
-    </nav>
-  </header>
+    <div class="side-foot">
+      <div class="side-acct"><span class="av" id="uav">P</span><div class="who"><div class="nm" id="unm">-</div><div class="em" id="uem">-</div></div></div>
+      <div class="side-btns"><button onclick="changePw()"><i class="bi bi-key"></i> 비밀번호</button><button onclick="doLogout()"><i class="bi bi-box-arrow-right"></i> 로그아웃</button></div>
+    </div>
+    <div class="sw-wrap"><button class="swbtn" onclick="document.getElementById('swdd').classList.toggle('open')"><i class="bi bi-grid-3x3-gap"></i><span style="flex:1;text-align:left">사이트 이동</span><i class="bi bi-chevron-up" style="font-size:10px"></i></button>
+      <div id="swdd"><!-- _wtRenderSwitcher() 권한 기반 동적 렌더 --></div></div>
+  </aside>
   <main id="main">
     <div id="demo-banner" class="demo-banner hidden"><i class="bi bi-info-circle"></i> <b>둘러보기 모드</b> — 직접 입력분은 이 브라우저에만 임시 저장됩니다. 팀 공용 저장을 켜려면 <code>step_demo_schedule.sql</code> 1회 실행. (한국영업 데모 연동은 로그인 시 자동) <button onclick="this.parentNode.classList.add('hidden')" style="margin-left:auto;background:transparent;border:0;color:#92400e;cursor:pointer;font-size:17px">×</button></div>
     <div id="view"></div>
@@ -367,7 +392,8 @@ function statusChip(s){const S=STATUS[s]||STATUS.planned;return `<span class="ch
 const NAVMAP={inv:'estat',stock:'estat',eana:'elog',tilist:'tiwork',tirefurb:'tiwork'};  // 세부탭 → 대표 nav키(하나의 메뉴로 묶음)
 const VIEWS=['home','clinic','cal','gantt','list','stats','elog','estat','avail','eana','inv','stock','tiwork','tilist','tirefurb'];
 function navKey(v){return NAVMAP[v]||v;}
-function setNavActive(v){const k=navKey(v);document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.v===k));}
+function setNavActive(v){const k=navKey(v);document.querySelectorAll('#sidebar a[data-v]').forEach(a=>a.classList.toggle('active',a.dataset.v===k));var mt=document.getElementById('m-title');if(mt){var el=document.querySelector('#sidebar a[data-v="'+k+'"] .lbl');mt.textContent=el?el.textContent.trim():'장비 통합관리';}}
+function toggleNav(force){var sb=document.getElementById('sidebar'),bd=document.getElementById('m-backdrop');if(!sb)return;var open=(force===undefined)?!sb.classList.contains('open'):!!force;sb.classList.toggle('open',open);if(bd)bd.classList.toggle('open',open);}
 function applyView(v){if(VIEWS.indexOf(v)<0)v='home';curView=v;try{sessionStorage.setItem('dsched_page',v);}catch(e){}setNavActive(v);const mbg=document.getElementById('mbg');if(mbg&&mbg.style.display==='flex')closeModal();render();window.scrollTo(0,0);}
 // 히스토리 라우팅(WT_NAV): 뒤로가기/새로고침에 현재 화면 유지 · 같은 키 중복 push 금지
 function setView(v,push){if(VIEWS.indexOf(v)<0)v='home';
@@ -387,7 +413,7 @@ window.addEventListener('pageshow',function(e){if(e.persisted){_sb.auth.getSessi
 function equipTabs(cur){const T=[['estat','🖥️ 운영 현황'],['inv','📦 재고·자산대장'],['stock','✅ 재고 실사']];return `<div class="seg" style="margin-bottom:14px">${T.map(([v,l])=>`<button class="${cur===v?'on':''}" onclick="setView('${v}')">${l}</button>`).join('')}</div>`;}
 function shipTabs(cur){const T=[['elog','📜 출하 이력'],['eana','📊 출하 분석']];return `<div class="seg" style="margin-bottom:14px">${T.map(([v,l])=>`<button class="${cur===v?'on':''}" onclick="setView('${v}')">${l}</button>`).join('')}</div>`;}
 function tiTabs(cur){const T=[['tiwork','📥 처리 현황'],['tilist','📋 회수 내역'],['tirefurb','♻️ 리퍼 재고']];return `<div class="seg" style="margin-bottom:14px">${T.map(([v,l])=>`<button class="${cur===v?'on':''}" onclick="setView('${v}')">${l}</button>`).join('')}</div>`;}
-document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',()=>setView(a.dataset.v)));
+document.querySelectorAll('#sidebar a[data-v]').forEach(a=>a.addEventListener('click',()=>{setView(a.dataset.v);toggleNav(false);}));
 let _drill={},_dseq=0;
 function reg(arr){const k='d'+(_dseq++);_drill[k]=arr||[];return k;}
 function openRecsK(k,title,note){openRecs(title,_drill[k]||[],note);}
