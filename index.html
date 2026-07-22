@@ -152,6 +152,13 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
 .gs-foot{padding:8px 11px;font-size:11px;font-weight:700;color:#0f766e;cursor:pointer;border-top:1px solid #eef2f7;margin-top:3px;border-radius:0 0 8px 8px}
 .gs-foot:hover{background:#f0fdfa}
 .gs-empty{padding:12px;color:#94a3b8;font-size:12px;text-align:center}
+.dash{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;align-items:start}
+.dash-col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.dlist{display:flex;flex-direction:column}
+.drow{display:flex;gap:11px;align-items:center;padding:8px 3px;border-bottom:1px solid var(--line2);cursor:pointer}
+.drow:last-child{border-bottom:0}
+.drow:hover{background:#f8fafc}
+@media(max-width:1080px){.dash{grid-template-columns:1fr}}
 </style>
 <script>/* WT_ERRLOG_V1 rev3 — 공통 오류수집+요청함 (자동주입 스니펫, 개별 수정 금지) */
 (function(){
@@ -1157,12 +1164,34 @@ function viewHome(){
     +'<div style="text-align:center;cursor:pointer" onclick="setView(\'cal\')"><div style="font-size:23px;font-weight:800;color:#2563eb;line-height:1">'+(em.length+tm.length)+'</div><div style="font-size:10.5px;color:#5b7591;margin-top:3px">오늘 출하·회수</div></div>'
     +'<div style="text-align:center"><div style="font-size:23px;font-weight:800;color:'+(_pend?'#dc2626':'#16a34a')+';line-height:1">'+_pend+'</div><div style="font-size:10.5px;color:#5b7591;margin-top:3px">처리 대기</div></div>'
     +'</div></div>';
+  // ── 위젯: 다가오는 데모 ──
+  var _dn=['일','월','화','수','목','금','토'];
+  var upc=all().filter(function(x){return x.date>=t&&x.status!=='done'&&x.status!=='canceled';}).sort(function(a,b){return (a.date||'').localeCompare(b.date||'')||(a.time||'').localeCompare(b.time||'');}).slice(0,10);
+  var upcomingCard='<div class="card"><div class="sect"><span>📅 다가오는 데모 <span class="muted" style="font-weight:400;font-size:11px">오늘부터 예정</span></span><span style="margin-left:auto;font-size:12px;color:#2563eb;cursor:pointer" onclick="setView(\'list\')">전체 →</span></div><div class="dlist">'
+    +(upc.length?upc.map(function(x){var d=new Date(x.date+'T00:00');var wd=isNaN(d)?'':_dn[d.getDay()];var isT=x.date===t;var st=STATUS[x.status]||STATUS.planned;var ro=x.source==='wontech';
+      return '<div class="drow" onclick="openView(\''+x.id+'\')"><div style="width:44px;flex-shrink:0;text-align:center"><div style="font-weight:800;font-size:13px;color:'+(isT?'#0f766e':'var(--ink)')+'">'+String(x.date).slice(5)+'</div><div style="font-size:9.5px;color:'+(isT?'#0f766e':'var(--muted)')+'">'+wd+(x.time?' '+esc(x.time):'')+'</div></div><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:12.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(x.cust||'-')+'</div><div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(esc(x.product||'')||'&nbsp;')+(x.sales?' · '+esc(x.sales):'')+'</div></div>'+(ro?'<span class="syncbadge" style="flex-shrink:0">연동</span>':'<span class="chip" style="background:'+st.c+'18;color:'+st.c+';flex-shrink:0">'+st.n+'</span>')+'</div>';
+    }).join(''):'<div class="muted" style="padding:18px;text-align:center">예정된 데모가 없습니다</div>')+'</div></div>';
+  // ── 위젯: 장기 미회수 Top ──
+  var ovList=overdueOut.slice().sort(function(a,b){return (eDays(b.start_date)||0)-(eDays(a.start_date)||0);}).slice(0,10);
+  var overdueCard='<div class="card"><div class="sect"><span>⚠️ 장기 미회수 Top <span class="muted" style="font-weight:400;font-size:11px">60일↑ 오래된 순</span></span><span style="margin-left:auto;font-size:12px;color:#2563eb;cursor:pointer" onclick="setView(\'elog\')">출하 이력 →</span></div><div class="dlist">'
+    +(ovList.length?ovList.map(function(e){var dd=eDays(e.start_date)||0;
+      return '<div class="drow" onclick="openEq(\''+e.id+'\')"><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:12.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(e.equipment||'-')+(e.serial?' <span style="color:var(--muted);font-weight:400;font-size:11px">'+esc(e.serial)+'</span>':'')+'</div><div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(e.hospital||'-')+((e.sales_rep||e.handler)?' · '+esc(e.sales_rep||e.handler):'')+'</div></div><b style="flex-shrink:0;color:#dc2626;font-size:13px">'+dd+'일</b></div>';
+    }).join(''):'<div class="muted" style="padding:18px;text-align:center">장기 미회수 없음 ✓</div>')+'</div></div>';
+  // ── 위젯: 이번달 데모 현황 ──
+  var monA=all().filter(function(x){return String(x.date||'').slice(0,7)===ym;});
+  var cnt={};monA.forEach(function(x){cnt[x.status]=(cnt[x.status]||0)+1;});
+  var bySales={};monA.forEach(function(x){if(x.sales)bySales[x.sales]=(bySales[x.sales]||0)+1;});
+  var salesTop=Object.keys(bySales).map(function(k){return [k,bySales[k]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,6);
+  var monthCard='<div class="card"><div class="sect"><span>📊 이번달 데모 현황 <span class="muted" style="font-weight:400;font-size:11px">총 '+monA.length+'건</span></span><span style="margin-left:auto;font-size:12px;color:#2563eb;cursor:pointer" onclick="setView(\'stats\')">통계 →</span></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:'+(salesTop.length?'14px':'2px')+';text-align:center">'
+      +'<div style="background:#eff6ff;border-radius:9px;padding:10px 4px"><div style="font-size:19px;font-weight:800;color:#2563eb">'+(cnt.planned||0)+'</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px">예정</div></div>'
+      +'<div style="background:#f0fdf4;border-radius:9px;padding:10px 4px"><div style="font-size:19px;font-weight:800;color:#16a34a">'+(cnt.done||0)+'</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px">완료</div></div>'
+      +'<div style="background:#fef2f2;border-radius:9px;padding:10px 4px"><div style="font-size:19px;font-weight:800;color:#dc2626">'+(cnt.noshow||0)+'</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px">노쇼</div></div></div>'
+    +(salesTop.length?'<div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:3px">담당자별 데모</div><div class="dlist">'+salesTop.map(function(s,i){return '<div class="drow" onclick="setF(\'sales\',\''+jsAttr(s[0])+'\');setView(\'list\')" style="padding:6px 3px"><span style="width:16px;color:var(--muted);font-size:11px;flex-shrink:0">'+(i+1)+'</span><span style="flex:1;color:var(--ink);font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(s[0])+'</span><b style="flex-shrink:0">'+s[1]+'건</b></div>';}).join('')+'</div>':'')+'</div>';
   return head('🎛️ 통합 현황','오늘 할 일과 장비 운용 현황을 한눈에 · 숫자·항목 클릭 → 상세',`<button class="btn btn-sm" onclick="openEqAdvSearch()">🔍 상세 검색</button>`)
     +_hero
     +(todos.length?(`<div class="sect" style="margin:4px 0 10px">⚡ 처리 대기 <span class="muted" style="font-weight:400;font-size:11px">클릭 → 바로 처리</span></div>`+todoH):'')
-    +todayBox
-    +fleetBox
-    +avBox;
+    +'<div class="dash"><div class="dash-col">'+todayBox+upcomingCard+fleetBox+'</div><div class="dash-col">'+overdueCard+monthCard+avBox+'</div></div>';
 }
 let _adv={m:'',k:'',h:'',d:''};
 function openEqAdvSearch(){const eqs=[...new Set(EMOVES.map(x=>x.equipment).filter(Boolean))].sort();
