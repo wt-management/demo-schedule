@@ -264,6 +264,9 @@ const DTYPE=['신규','재데모','온라인','기타'];
 let ME='',DEMO=false,curView='home',calMode='week',refDate=new Date();
 let SYNC=[],OWN=[];
 let fSales='',fStatus='',fBs='';
+(function(){try{var _f=JSON.parse(localStorage.getItem('dsched_filters')||'{}');fSales=_f.sales||'';fStatus=_f.status||'';fBs=_f.bs||'';}catch(e){}})();
+function setF(k,v){if(k==='sales')fSales=v;else if(k==='status')fStatus=v;else if(k==='bs')fBs=v;try{localStorage.setItem('dsched_filters',JSON.stringify({sales:fSales,status:fStatus,bs:fBs}));}catch(e){}render();}
+function resetF(){fSales=fStatus=fBs='';try{localStorage.setItem('dsched_filters','{}');}catch(e){}render();}
 let _mp=[];   // 모달 부속품 임시 [{name,done}]
 // 제품별 기본 부속품 프리셋 (키워드 매칭, 위→아래 우선)
 const PART_PRESETS={
@@ -432,6 +435,7 @@ function qaClose(){var m=document.getElementById('qa-menu'),f=document.getElemen
 document.addEventListener('keydown',function(e){
   var tag=(e.target&&e.target.tagName||'').toLowerCase();var typing=(tag==='input'||tag==='select'||tag==='textarea'||(e.target&&e.target.isContentEditable));
   if(e.key==='/'&&!typing){var g=document.getElementById('gsearch');if(g){e.preventDefault();g.focus();try{g.select();}catch(_){}}}
+  else if((e.key==='n'||e.key==='N')&&!typing){var mo=document.getElementById('mbg');if(!(mo&&mo.style.display==='flex')){e.preventDefault();openModal({});}}
   else if(e.key==='Escape'){var mbg=document.getElementById('mbg');if(mbg&&mbg.style.display==='flex'){closeModal();}else{qaClose();toggleNav(false);var sw=document.getElementById('swdd');if(sw)sw.classList.remove('open');}}
 });
 document.addEventListener('click',function(e){var w=document.getElementById('qa-fab-wrap');if(w&&!w.contains(e.target))qaClose();var ss=document.querySelector('.side-search');if(ss&&!ss.contains(e.target))closeGs();});
@@ -482,9 +486,10 @@ function reg(arr){const k='d'+(_dseq++);_drill[k]=arr||[];return k;}
 function openRecsK(k,title,note){openRecs(title,_drill[k]||[],note);}
 function render(){_drill={};_dseq=0;_tiv=[];_mcMap=null;const v=document.getElementById('view');v.innerHTML=curView==='home'?viewHome():curView==='clinic'?viewClinic():curView==='cal'?viewCal():curView==='list'?viewList():curView==='elog'?viewElog():curView==='estat'?viewEstat():curView==='avail'?viewAvail():curView==='gantt'?viewGantt():curView==='eana'?viewEana():curView==='inv'?viewInv():curView==='stock'?viewStock():curView==='tiwork'?viewTiWork():curView==='tilist'?viewTiList():curView==='tirefurb'?viewTiRefurb():viewStats();tiBadge();homeBadge();}
 function head(title,desc,actions){return `<div class="topbar"><div><h2>${title}</h2><div class="desc">${desc}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${actions||''}</div></div><div class="wrap">${notifBar()}`;}
-function filterBar(){const s=salesList();const bl=bsList();return `<select class="sel" onchange="fSales=this.value;render()"><option value="">담당 전체</option>${s.map(x=>`<option ${fSales===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`+
-  (bl.length?`<select class="sel" onchange="fBs=this.value;render()"><option value="">운송(BS) 전체</option>${bl.map(x=>`<option ${fBs===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`:'')+
-  `<select class="sel" onchange="fStatus=this.value;render()"><option value="">상태 전체</option>${Object.keys(STATUS).map(k=>`<option value="${k}" ${fStatus===k?'selected':''}>${STATUS[k].n}</option>`).join('')}</select>`;}
+function filterBar(){const s=salesList();const bl=bsList();return `<select class="sel" onchange="setF('sales',this.value)"><option value="">담당 전체</option>${s.map(x=>`<option ${fSales===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`+
+  (bl.length?`<select class="sel" onchange="setF('bs',this.value)"><option value="">운송(BS) 전체</option>${bl.map(x=>`<option ${fBs===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`:'')+
+  `<select class="sel" onchange="setF('status',this.value)"><option value="">상태 전체</option>${Object.keys(STATUS).map(k=>`<option value="${k}" ${fStatus===k?'selected':''}>${STATUS[k].n}</option>`).join('')}</select>`+
+  ((fSales||fStatus||fBs)?`<button class="btn btn-sm" onclick="resetF()" title="필터 초기화"><i class="bi bi-x-circle"></i> 필터 해제</button>`:'');}
 
 // ── 캘린더 ──
 function setCalMode(m){calMode=m;render();}
