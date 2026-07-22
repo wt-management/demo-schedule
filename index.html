@@ -126,7 +126,24 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 20px;border-radius:11px;font-size:13px;z-index:90;opacity:0;transition:.2s;pointer-events:none}.toast.show{opacity:1}
 #login{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f172a,#1e2140);z-index:70}
 .lc{background:#fff;border-radius:18px;padding:38px 32px;width:340px}.lc h1{font-size:18px;text-align:center;color:#0f172a}.lc input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;margin-bottom:11px}.lc button{width:100%;padding:12px;border:0;border-radius:10px;background:var(--brand);color:#fff;font-weight:700}
-@media(max-width:860px){.brand small{display:none}.acctbtn .who{display:none}.hdr-in{padding:11px 14px;gap:10px}.nav{padding:0 8px}.topbar,.wrap,.demo-banner{padding-left:14px;padding-right:14px}.wk{grid-template-columns:1fr}}
+@media(max-width:860px){.brand small{display:none}.topbar,.wrap,.demo-banner{padding-left:14px;padding-right:14px}.wk{grid-template-columns:1fr}}
+/* ── 빠른 등록 FAB ── */
+#qa-fab-wrap{position:fixed;right:20px;bottom:20px;z-index:85;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+#qa-fab{width:52px;height:52px;border-radius:50%;background:var(--brand);color:#fff;border:0;font-size:25px;box-shadow:0 8px 24px rgba(13,148,136,.42);display:flex;align-items:center;justify-content:center;transition:transform .18s,background .15s}
+#qa-fab:hover{transform:scale(1.06);background:var(--brand-strong)}
+#qa-fab.open{transform:rotate(45deg)}
+#qa-menu{display:flex;flex-direction:column;gap:9px;align-items:flex-end}
+#qa-menu.hidden{display:none}
+#qa-menu button{background:#fff;border:1px solid var(--line);border-radius:24px;padding:9px 16px;font-size:13px;font-weight:700;color:var(--ink);box-shadow:0 6px 18px rgba(16,24,40,.15);display:flex;align-items:center;gap:8px;white-space:nowrap;cursor:pointer}
+#qa-menu button:hover{background:var(--brand-soft);color:var(--brand-strong);border-color:#99f6e4}
+#qa-menu button i{color:var(--brand);font-size:15px}
+#wt-fb-btn{bottom:86px!important}
+#wt-fb-panel{bottom:130px!important}
+.side-search{padding:9px 10px 4px}
+.side-search .box{position:relative}
+.side-search i.si{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:12px;color:#94a3b8;pointer-events:none}
+.side-search input{width:100%;padding:8px 10px 8px 32px;border:1px solid #d8e0ea;border-radius:8px;background:#fff;font-size:12px;color:#334155;outline:none}
+.side-search input:focus{border-color:#99f6e4;box-shadow:0 0 0 3px rgba(13,148,136,.1)}
 </style>
 <script>/* WT_ERRLOG_V1 rev3 — 공통 오류수집+요청함 (자동주입 스니펫, 개별 수정 금지) */
 (function(){
@@ -165,6 +182,7 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   <div id="m-backdrop" onclick="toggleNav(false)"></div>
   <aside class="sidebar" id="sidebar">
     <div class="brand"><div class="lg">🎛️</div><div><b>장비 통합관리</b><small>데모·출하·보상</small></div></div>
+    <div class="side-search"><div class="box"><i class="bi bi-search si"></i><input id="gsearch" autocomplete="off" placeholder="장비·시리얼·병원 검색  ( / )" onkeydown="if(event.key==='Enter'&&this.value.trim()){assetSearch(this.value);toggleNav(false);}"></div><div style="text-align:right;margin-top:3px"><span onclick="openEqAdvSearch()" style="font-size:10.5px;color:#0f766e;cursor:pointer;font-weight:600">상세 검색 →</span></div></div>
     <div class="nav-scroll">
       <div class="nav-section">
         <a class="nav-link active" data-v="home"><i class="bi bi-grid-1x2-fill"></i><span class="lbl">통합 현황</span><span id="home-badge" class="nav-badge" style="display:none"></span></a>
@@ -196,6 +214,13 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     <div id="demo-banner" class="demo-banner hidden"><i class="bi bi-info-circle"></i> <b>둘러보기 모드</b> — 직접 입력분은 이 브라우저에만 임시 저장됩니다. 팀 공용 저장을 켜려면 <code>step_demo_schedule.sql</code> 1회 실행. (한국영업 데모 연동은 로그인 시 자동) <button onclick="this.parentNode.classList.add('hidden')" style="margin-left:auto;background:transparent;border:0;color:#92400e;cursor:pointer;font-size:17px">×</button></div>
     <div id="view"></div>
   </main>
+  <div id="qa-fab-wrap">
+    <div id="qa-menu" class="hidden">
+      <button onclick="qaClose();openModal({})"><i class="bi bi-calendar-plus"></i> 데모 추가</button>
+      <button onclick="qaClose();openEq(null,{kind:'데모'})"><i class="bi bi-box-arrow-up-right"></i> 장비 출하·이동</button>
+    </div>
+    <button id="qa-fab" onclick="qaToggle()" title="빠른 등록"><i class="bi bi-plus-lg"></i></button>
+  </div>
 </div>
 <div id="mbg"><div class="modal" id="modal"></div></div>
 <div class="toast" id="toast"></div>
@@ -394,6 +419,14 @@ const VIEWS=['home','clinic','cal','gantt','list','stats','elog','estat','avail'
 function navKey(v){return NAVMAP[v]||v;}
 function setNavActive(v){const k=navKey(v);document.querySelectorAll('#sidebar a[data-v]').forEach(a=>a.classList.toggle('active',a.dataset.v===k));var mt=document.getElementById('m-title');if(mt){var el=document.querySelector('#sidebar a[data-v="'+k+'"] .lbl');mt.textContent=el?el.textContent.trim():'장비 통합관리';}}
 function toggleNav(force){var sb=document.getElementById('sidebar'),bd=document.getElementById('m-backdrop');if(!sb)return;var open=(force===undefined)?!sb.classList.contains('open'):!!force;sb.classList.toggle('open',open);if(bd)bd.classList.toggle('open',open);}
+function qaToggle(){var m=document.getElementById('qa-menu'),f=document.getElementById('qa-fab');if(!m)return;var willOpen=m.classList.contains('hidden');m.classList.toggle('hidden',!willOpen);f.classList.toggle('open',willOpen);}
+function qaClose(){var m=document.getElementById('qa-menu'),f=document.getElementById('qa-fab');if(m){m.classList.add('hidden');if(f)f.classList.remove('open');}}
+document.addEventListener('keydown',function(e){
+  var tag=(e.target&&e.target.tagName||'').toLowerCase();var typing=(tag==='input'||tag==='select'||tag==='textarea'||(e.target&&e.target.isContentEditable));
+  if(e.key==='/'&&!typing){var g=document.getElementById('gsearch');if(g){e.preventDefault();g.focus();try{g.select();}catch(_){}}}
+  else if(e.key==='Escape'){var mbg=document.getElementById('mbg');if(mbg&&mbg.style.display==='flex'){closeModal();}else{qaClose();toggleNav(false);var sw=document.getElementById('swdd');if(sw)sw.classList.remove('open');}}
+});
+document.addEventListener('click',function(e){var w=document.getElementById('qa-fab-wrap');if(w&&!w.contains(e.target))qaClose();});
 function applyView(v){if(VIEWS.indexOf(v)<0)v='home';curView=v;try{sessionStorage.setItem('dsched_page',v);}catch(e){}setNavActive(v);const mbg=document.getElementById('mbg');if(mbg&&mbg.style.display==='flex')closeModal();render();window.scrollTo(0,0);}
 // 히스토리 라우팅(WT_NAV): 뒤로가기/새로고침에 현재 화면 유지 · 같은 키 중복 push 금지
 function setView(v,push){if(VIEWS.indexOf(v)<0)v='home';
