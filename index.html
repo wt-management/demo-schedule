@@ -177,6 +177,22 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
 .sb-cell.clk{cursor:pointer;border-radius:10px;transition:background .15s}
 .sb-cell.clk:hover{background:rgba(148,163,184,.12)}
 @media(max-width:820px){.sb-grid{grid-template-columns:1fr 1fr;gap:14px 0}.sb-cell{border-left:none;padding-left:2px}.sb-cell:nth-child(even){border-left:1px solid var(--hero-line);padding-left:16px}.sb-v{font-size:1.7rem}}
+/* ── CDU식 깔끔 지표 밴드 (한국영업 통일) ── */
+.wt-band{display:flex;align-items:stretch;background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin-bottom:16px;box-shadow:var(--sh)}
+.wt-band .wt-fact:first-child{border-left:0;padding-left:2px}
+.wt-hero{flex:1.4;padding-right:22px;display:flex;flex-direction:column;justify-content:center;min-width:0}
+.wt-hero .l{font-size:11.5px;font-weight:700;color:#64748b}
+.wt-hero>b{font-size:31px;font-weight:800;color:var(--brand-strong);letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1;margin-top:2px}
+.wt-hero .s{font-size:12px;color:#64748b;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wt-fact{flex:1;padding:2px 18px;border-left:1px solid var(--line);display:flex;flex-direction:column;justify-content:center;min-width:0}
+.wt-fact.clk{cursor:pointer;border-radius:8px;transition:background .13s}.wt-fact.clk:hover{background:#f8fafc}
+.wt-fact .l{font-size:11px;font-weight:700;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wt-fact b{font-size:21px;font-weight:800;color:#182230;font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:2px}
+.wt-fact b.rd{color:#dc2626}.wt-fact b.gr{color:#15803d}.wt-fact b.wa{color:#b45309}
+.wt-fact .s{font-size:10.5px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.wt-st{font-size:14px;font-weight:800;color:#182230;margin:2px 0 11px;display:flex;align-items:baseline;gap:8px}
+.wt-st .d{font-size:11.5px;font-weight:400;color:#94a3b8}
+@media(max-width:720px){.wt-band{display:grid;grid-template-columns:1fr 1fr;gap:14px}.wt-hero{grid-column:1/-1;padding-right:0;border-bottom:1px solid var(--line);padding-bottom:12px}.wt-fact{border-left:0!important;padding:2px}}
 </style>
 <script>/* WT_ERRLOG_V1 rev3 — 공통 오류수집+요청함 (자동주입 스니펫, 개별 수정 금지) */
 (function(){
@@ -1177,15 +1193,13 @@ function viewHome(){
   var _urgent=overdueOut.length?('⚠️ 장기 미회수 '+overdueOut.length+'건 — 회수를 챙기세요'):(overdueDemo.length?('데모 결과 '+overdueDemo.length+'건 미기록'):(_pend?('처리 대기 '+_pend+'건이 있어요'):'지금 급한 처리 항목은 없어요 ✓'));
   var _dn0=['일','월','화','수','목','금','토'];var _wt=(function(){var d=new Date(t+'T00:00');return isNaN(d)?'':_dn0[d.getDay()];})();
   var nwArr=(typeof OWN!=='undefined'?OWN:[]).filter(isNew);
-  var _hero='<section class="scoreboard">'
-    +'<div class="sb-head"><span class="sb-title"><i class="bi bi-lightning-charge-fill"></i> '+_greet+(_nm?', '+esc(_nm)+'님':'')+'</span><span class="sb-note"><span>'+t+' ('+_wt+') · '+_urgent+'</span>'+(nwArr.length?'<button class="sb-ack" onclick="event.stopPropagation();markSeen()">새 데모 확인</button>':'')+'</span></div>'
-    +'<div class="sb-grid">'
-      +'<div class="sb-cell clk" onclick="setView(\'cal\')"><div class="sb-l"><i class="bi bi-calendar-check"></i>오늘 데모</div><div class="sb-v">'+todayDemo.length+'</div><div class="sb-s">건 예정</div></div>'
-      +'<div class="sb-cell sm clk" onclick="setView(\'cal\')"><div class="sb-l"><i class="bi bi-truck"></i>오늘 출하·회수</div><div class="sb-v">'+(em.length+tm.length)+'</div><div class="sb-s">건</div></div>'
-      +'<div class="sb-cell sm"><div class="sb-l"><i class="bi bi-lightning-charge"></i>처리 대기</div><div class="sb-v" style="color:'+(_pend?'#dc2626':'#15803d')+'">'+_pend+'</div><div class="sb-s">건</div></div>'
-      +'<div class="sb-cell sm clk" onclick="setView(\'elog\')"><div class="sb-l"><i class="bi bi-hourglass-split"></i>장기 미회수</div><div class="sb-v" style="color:'+(overdueOut.length?'#dc2626':'var(--hero-ink)')+'">'+overdueOut.length+'</div><div class="sb-s">60일↑</div></div>'
-      +'<div class="sb-cell sm'+(nwArr.length||overdueDemo.length?' clk':'')+'" '+(nwArr.length?'onclick="openRecsK(\''+reg(nwArr)+'\',\'새로 추가된 데모\')"':(overdueDemo.length?'onclick="openRecsK(\''+reg(overdueDemo)+'\',\'결과 미입력 데모\')"':''))+'><div class="sb-l"><i class="bi bi-bell"></i>새 데모 · 미입력</div><div class="sb-v">'+nwArr.length+'</div><div class="sb-s">'+(overdueDemo.length?'결과 미입력 '+overdueDemo.length+'건':'최신 상태 ✓')+'</div></div>'
-    +'</div></section>';
+  var _hero='<div class="wt-band">'
+    +'<div class="wt-hero"><div class="l">오늘 데모</div><b>'+todayDemo.length+'개</b><div class="s">이번주 '+weekDemo.length+'건 예정</div></div>'
+    +'<div class="wt-fact clk" onclick="setView(\'cal\')"><div class="l">오늘 출하·회수</div><b>'+(em.length+tm.length)+'건</b><div class="s">통합 캘린더 →</div></div>'
+    +'<div class="wt-fact"><div class="l">처리 대기</div><b class="'+(_pend?'rd':'gr')+'">'+_pend+'개</b><div class="s">'+(_pend?'아래에서 처리':'없음 ✓')+'</div></div>'
+    +'<div class="wt-fact clk" onclick="setView(\'elog\')"><div class="l">장기 미회수</div><b class="'+(overdueOut.length?'rd':'')+'">'+overdueOut.length+'개</b><div class="s">60일↑ 회수 필요</div></div>'
+    +'<div class="wt-fact'+(nwArr.length?' clk':'')+'" '+(nwArr.length?'onclick="openRecsK(\''+reg(nwArr)+'\',\'새로 추가된 데모\')"':'')+'><div class="l">새 데모 · 미입력</div><b>'+nwArr.length+'</b><div class="s">'+(overdueDemo.length?'결과 미입력 '+overdueDemo.length:'최신 ✓')+'</div></div>'
+    +'</div>';
   // ── 위젯: 다가오는 데모 ──
   var _dn=['일','월','화','수','목','금','토'];
   var upc=all().filter(function(x){return x.date>=t&&x.status!=='done'&&x.status!=='canceled';}).sort(function(a,b){return (a.date||'').localeCompare(b.date||'')||(a.time||'').localeCompare(b.time||'');}).slice(0,10);
@@ -1210,9 +1224,10 @@ function viewHome(){
       +'<div style="background:#f0fdf4;border-radius:9px;padding:10px 4px"><div style="font-size:19px;font-weight:800;color:#16a34a">'+(cnt.done||0)+'</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px">완료</div></div>'
       +'<div style="background:#fef2f2;border-radius:9px;padding:10px 4px"><div style="font-size:19px;font-weight:800;color:#dc2626">'+(cnt.noshow||0)+'</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px">노쇼</div></div></div>'
     +(salesTop.length?'<div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:3px">담당자별 데모</div><div class="dlist">'+salesTop.map(function(s,i){return '<div class="drow" onclick="setF(\'sales\',\''+jsAttr(s[0])+'\');setView(\'list\')" style="padding:6px 3px"><span style="width:16px;color:var(--muted);font-size:11px;flex-shrink:0">'+(i+1)+'</span><span style="flex:1;color:var(--ink);font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(s[0])+'</span><b style="flex-shrink:0">'+s[1]+'건</b></div>';}).join('')+'</div>':'')+'</div>';
-  return head('🎛️ 통합 현황','오늘 할 일과 장비 운용 현황을 한눈에 · 숫자·항목 클릭 → 상세',`<button class="btn btn-sm" onclick="openEqAdvSearch()">🔍 상세 검색</button>`)
+  var todoBand=todos.length?('<div class="wt-st">⚡ 처리 대기 <span class="d">지금 손봐야 할 것 · 클릭 → 바로 처리</span></div><div class="wt-band" style="padding:14px 18px">'+todos.map(function(x){var cls=x.c==='#dc2626'?'rd':(x.c==='#f59e0b'?'wa':'');return '<div class="wt-fact clk" '+x.act+'><div class="l">'+x.l+'</div><b class="'+cls+'">'+x.n+'</b><div class="s">바로 처리 →</div></div>';}).join('')+'</div>'):'';
+  return head('🎛️ 통합 현황',_greet+(_nm?', '+esc(_nm)+'님':'')+' · '+t+' '+_wt+'요일',`<button class="btn btn-sm" onclick="openEqAdvSearch()">🔍 상세 검색</button>`)
     +_hero
-    +(todos.length?(`<div class="sect" style="margin:4px 0 10px">⚡ 처리 대기 <span class="muted" style="font-weight:400;font-size:11px">클릭 → 바로 처리</span></div>`+todoH):'')
+    +todoBand
     +'<div class="dash"><div class="dash-col">'+todayBox+upcomingCard+fleetBox+'</div><div class="dash-col">'+overdueCard+monthCard+avBox+'</div></div>';
 }
 let _adv={m:'',k:'',h:'',d:''};
