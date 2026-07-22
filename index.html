@@ -162,13 +162,18 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
 .sh2>div:first-child{padding-right:22px}
 .sh2>div:last-child{border-left:1px solid var(--line2);padding-left:22px}
 .sh2 .dlist{max-height:158px;overflow-y:auto}
+/* 시트 안 KPI = CDU식 지표 칼럼(카드 아님) */
+.sheet .kpis{gap:0;margin-bottom:0}
+.sheet .kpi{border:0;box-shadow:none;background:transparent;border-radius:0;border-left:1px solid var(--line2);padding:6px 18px}
+.sheet .kpis .kpi:first-child{border-left:0;padding-left:2px}
+.sheet .kpi.clk:hover{transform:none;background:#f8fafc}
 @media(max-width:1080px){.sh2{grid-template-columns:1fr}.sh2>div:last-child{border-left:0;padding-left:0;border-top:1px solid var(--line2)}.sh2>div:first-child{padding-right:0}}
 .dash{display:grid;grid-template-columns:1.55fr 1fr;gap:12px;align-items:start}
 .dash-col{display:flex;flex-direction:column;gap:12px;min-width:0}
 .dash .card{padding:13px 15px}
 .dash .sect{margin-bottom:8px}
 .dash .dlist{max-height:182px;overflow-y:auto}
-.fleetwrap{max-height:138px;overflow-y:auto}
+.fleetwrap{max-height:200px;overflow-y:auto}
 .dlist{display:flex;flex-direction:column}
 .drow{display:flex;gap:11px;align-items:center;padding:8px 3px;border-bottom:1px solid var(--line2);cursor:pointer}
 .drow:last-child{border-bottom:0}
@@ -541,7 +546,7 @@ let _drill={},_dseq=0;
 function reg(arr){const k='d'+(_dseq++);_drill[k]=arr||[];return k;}
 function openRecsK(k,title,note){openRecs(title,_drill[k]||[],note);}
 function render(){_drill={};_dseq=0;_tiv=[];_mcMap=null;const v=document.getElementById('view');v.innerHTML=curView==='home'?viewHome():curView==='clinic'?viewClinic():curView==='cal'?viewCal():curView==='list'?viewList():curView==='elog'?viewElog():curView==='estat'?viewEstat():curView==='avail'?viewAvail():curView==='gantt'?viewGantt():curView==='eana'?viewEana():curView==='inv'?viewInv():curView==='stock'?viewStock():curView==='tiwork'?viewTiWork():curView==='tilist'?viewTiList():curView==='tirefurb'?viewTiRefurb():viewStats();tiBadge();homeBadge();}
-function head(title,desc,actions){return `<div class="topbar"><div><h2>${title}</h2><div class="desc">${desc}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${actions||''}</div></div><div class="wrap">${notifBar()}`;}
+function head(title,desc,actions){return `<div class="topbar"><div><h2>${title}</h2><div class="desc">${desc}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${actions||''}</div></div><div class="wrap">${notifBar()}<div class="sheet">`;}
 function filterBar(){const s=salesList();const bl=bsList();return `<select class="sel" onchange="setF('sales',this.value)"><option value="">담당 전체</option>${s.map(x=>`<option ${fSales===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`+
   (bl.length?`<select class="sel" onchange="setF('bs',this.value)"><option value="">운송(BS) 전체</option>${bl.map(x=>`<option ${fBs===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`:'')+
   `<select class="sel" onchange="setF('status',this.value)"><option value="">상태 전체</option>${Object.keys(STATUS).map(k=>`<option value="${k}" ${fStatus===k?'selected':''}>${STATUS[k].n}</option>`).join('')}</select>`+
@@ -1232,16 +1237,15 @@ function viewHome(){
   var monA=all().filter(function(x){return String(x.date||'').slice(0,7)===ym;});
   var cnt={};monA.forEach(function(x){cnt[x.status]=(cnt[x.status]||0)+1;});
   var bySales={};monA.forEach(function(x){if(x.sales)bySales[x.sales]=(bySales[x.sales]||0)+1;});
-  var salesTop=Object.keys(bySales).map(function(k){return [k,bySales[k]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,4);
+  var salesTop=Object.keys(bySales).map(function(k){return [k,bySales[k]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,6);
   var monthCard='<div class="card"><div class="sect"><span>📊 이번달 데모 현황 <span class="muted" style="font-weight:400;font-size:11px">총 '+monA.length+'건</span></span><span style="margin-left:auto;font-size:12px;color:#2563eb;cursor:pointer" onclick="setView(\'stats\')">통계 →</span></div>'
     +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:'+(salesTop.length?'14px':'2px')+';text-align:center">'
       +'<div style="background:#eff6ff;border-radius:9px;padding:10px 4px"><div style="font-size:19px;font-weight:800;color:#2563eb">'+(cnt.planned||0)+'</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px">예정</div></div>'
       +'<div style="background:#f0fdf4;border-radius:9px;padding:10px 4px"><div style="font-size:19px;font-weight:800;color:#16a34a">'+(cnt.done||0)+'</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px">완료</div></div>'
       +'<div style="background:#fef2f2;border-radius:9px;padding:10px 4px"><div style="font-size:19px;font-weight:800;color:#dc2626">'+(cnt.noshow||0)+'</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px">노쇼</div></div></div>'
-    +(salesTop.length?'<div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:3px">담당자별 데모</div><div class="dlist">'+salesTop.map(function(s,i){return '<div class="drow" onclick="setF(\'sales\',\''+jsAttr(s[0])+'\');setView(\'list\')" style="padding:6px 3px"><span style="width:16px;color:var(--muted);font-size:11px;flex-shrink:0">'+(i+1)+'</span><span style="flex:1;color:var(--ink);font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(s[0])+'</span><b style="flex-shrink:0">'+s[1]+'건</b></div>';}).join('')+'</div>':'')+'</div>';
+    +(salesTop.length?'<div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:3px">담당자별 데모</div><div class="dlist" style="max-height:none">'+salesTop.map(function(s,i){return '<div class="drow" onclick="setF(\'sales\',\''+jsAttr(s[0])+'\');setView(\'list\')" style="padding:6px 3px"><span style="width:16px;color:var(--muted);font-size:11px;flex-shrink:0">'+(i+1)+'</span><span style="flex:1;color:var(--ink);font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(s[0])+'</span><b style="flex-shrink:0">'+s[1]+'건</b></div>';}).join('')+'</div>':'')+'</div>';
   var todoBand=todos.length?('<div class="wt-st">⚡ 처리 대기 <span class="d">지금 손봐야 할 것 · 클릭 → 바로 처리</span></div><div class="wt-band" style="padding:14px 18px">'+todos.map(function(x){var cls=x.c==='#dc2626'?'rd':(x.c==='#f59e0b'?'wa':'');return '<div class="wt-fact clk" '+x.act+'><div class="l">'+x.l+'</div><b class="'+cls+'">'+x.n+'</b><div class="s">바로 처리 →</div></div>';}).join('')+'</div>'):'';
   return head('🎛️ 통합 현황',_greet+(_nm?', '+esc(_nm)+'님':'')+' · '+t+' '+_wt+'요일',`<button class="btn btn-sm" onclick="openEqAdvSearch()">🔍 상세 검색</button>`)
-    +'<div class="sheet">'
     +_hero
     +(todos.length?('<div>'+todoBand+'</div>'):'')
     +todayBox
