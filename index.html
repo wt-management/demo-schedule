@@ -152,6 +152,17 @@ tbody tr{cursor:pointer}tbody tr:hover td{background:#f8f9ff}
 .gs-foot{padding:8px 11px;font-size:11px;font-weight:700;color:#2563eb;cursor:pointer;border-top:1px solid #eef2f7;margin-top:3px;border-radius:0 0 8px 8px}
 .gs-foot:hover{background:#eff6ff}
 .gs-empty{padding:12px;color:#94a3b8;font-size:12px;text-align:center}
+/* ── 단일 시트(CDU식): 카드 없이 구분선으로만 ── */
+.sheet{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh);padding:2px 24px;margin-bottom:14px}
+.sheet>*+*{border-top:1px solid var(--line2)}
+.sheet .card,.sheet .wt-band{border:0!important;box-shadow:none!important;border-radius:0!important;background:transparent!important;padding:15px 0!important;margin:0!important}
+.sheet .wt-st{margin:0;padding:15px 0 0}
+.sh2{display:grid;grid-template-columns:1.45fr 1fr}
+.sh2>div{min-width:0}
+.sh2>div:first-child{padding-right:22px}
+.sh2>div:last-child{border-left:1px solid var(--line2);padding-left:22px}
+.sh2 .dlist{max-height:158px;overflow-y:auto}
+@media(max-width:1080px){.sh2{grid-template-columns:1fr}.sh2>div:last-child{border-left:0;padding-left:0;border-top:1px solid var(--line2)}.sh2>div:first-child{padding-right:0}}
 .dash{display:grid;grid-template-columns:1.55fr 1fr;gap:12px;align-items:start}
 .dash-col{display:flex;flex-direction:column;gap:12px;min-width:0}
 .dash .card{padding:13px 15px}
@@ -1230,9 +1241,14 @@ function viewHome(){
     +(salesTop.length?'<div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:3px">담당자별 데모</div><div class="dlist">'+salesTop.map(function(s,i){return '<div class="drow" onclick="setF(\'sales\',\''+jsAttr(s[0])+'\');setView(\'list\')" style="padding:6px 3px"><span style="width:16px;color:var(--muted);font-size:11px;flex-shrink:0">'+(i+1)+'</span><span style="flex:1;color:var(--ink);font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(s[0])+'</span><b style="flex-shrink:0">'+s[1]+'건</b></div>';}).join('')+'</div>':'')+'</div>';
   var todoBand=todos.length?('<div class="wt-st">⚡ 처리 대기 <span class="d">지금 손봐야 할 것 · 클릭 → 바로 처리</span></div><div class="wt-band" style="padding:14px 18px">'+todos.map(function(x){var cls=x.c==='#dc2626'?'rd':(x.c==='#f59e0b'?'wa':'');return '<div class="wt-fact clk" '+x.act+'><div class="l">'+x.l+'</div><b class="'+cls+'">'+x.n+'</b><div class="s">바로 처리 →</div></div>';}).join('')+'</div>'):'';
   return head('🎛️ 통합 현황',_greet+(_nm?', '+esc(_nm)+'님':'')+' · '+t+' '+_wt+'요일',`<button class="btn btn-sm" onclick="openEqAdvSearch()">🔍 상세 검색</button>`)
+    +'<div class="sheet">'
     +_hero
-    +todoBand
-    +'<div class="dash"><div class="dash-col">'+todayBox+upcomingCard+fleetBox+'</div><div class="dash-col">'+overdueCard+monthCard+avBox+'</div></div>';
+    +(todos.length?('<div>'+todoBand+'</div>'):'')
+    +todayBox
+    +'<div class="sh2"><div>'+upcomingCard+'</div><div>'+overdueCard+'</div></div>'
+    +'<div class="sh2"><div>'+fleetBox+'</div><div>'+monthCard+'</div></div>'
+    +avBox
+    +'</div>';
 }
 let _adv={m:'',k:'',h:'',d:''};
 function openEqAdvSearch(){const eqs=[...new Set(EMOVES.map(x=>x.equipment).filter(Boolean))].sort();
