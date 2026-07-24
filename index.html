@@ -1018,7 +1018,7 @@ function tiActivityBox(){
   const byS={};(TI.items||[]).forEach(x=>{if(x.serial)byS[x.serial]=x;});
   const arr=Object.keys(TIEDITS).map(s=>({s,e:TIEDITS[s]})).filter(o=>o.e&&o.e._at).sort((a,b)=>(b.e._at||'').localeCompare(a.e._at||'')).slice(0,20);
   if(!arr.length)return '';
-  const rows=arr.map(o=>{const it=byS[o.s]||{};return `<tr class="clk" onclick="openItemTI('${(o.s||'').replace(/'/g,'')}')"><td>${esc(o.e._at||'-')}</td><td>${esc(it.clinic||'-')}</td><td>${esc(it.recovDev||'-')}</td><td>${esc(o.s)}</td><td>${esc(tiEditSummary(o.e))}</td><td>${esc(o.e._by||'-')}</td></tr>`;}).join('');
+  const rows=arr.map(o=>{const it=byS[o.s]||{};return `<tr class="clk" onclick="openItemTI('${jsAttr(o.s||'')}')"><td>${esc(o.e._at||'-')}</td><td>${esc(it.clinic||'-')}</td><td>${esc(it.recovDev||'-')}</td><td>${esc(o.s)}</td><td>${esc(tiEditSummary(o.e))}</td><td>${esc(o.e._by||'-')}</td></tr>`;}).join('');
   return `<div class="card" style="margin-top:16px;padding:0;overflow:auto"><div class="sect" style="padding:14px 16px 4px">🕘 최근 처리 내역 <span class="muted" style="font-weight:400;font-size:11px">(사이트 처리·수정 기록)</span></div><table><thead><tr><th>처리일</th><th>거래처</th><th>회수장비</th><th>시리얼</th><th>처리내용</th><th>처리자</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function tiEditSummary(e){const p=[];if(e.comp)p.push('보상처리');if(e.paid)p.push('입금'+(e.payDate?'('+e.payDate+')':''));if(e.usage)p.push('활용:'+e.usage);if(e.refurbOut)p.push('출고:'+e.refurbOut);if(e.invoice)p.push('계산서');if(e.note)p.push('비고');return p.join(', ')||'수정';}
@@ -1064,7 +1064,7 @@ function openItemTIObj(x){
         <label>비고</label><input id="ti-note" value="${esc(x.note)}" style="${ip}">
       </div>
     </div>
-    <div class="mf"><div>${x._edited?`<button class="btn" style="color:var(--bad)" onclick="resetEditTI('${(x.serial||'').replace(/'/g,'')}')">↩ 원본 복원</button>`:''}</div><div><button class="btn" onclick="closeModal()">취소</button><button class="btn btn-primary" onclick="saveEditTI('${(x.serial||'').replace(/'/g,'')}')">💾 저장</button></div></div>`;
+    <div class="mf"><div>${x._edited?`<button class="btn" style="color:var(--bad)" onclick="resetEditTI('${jsAttr(x.serial||'')}')">↩ 원본 복원</button>`:''}</div><div><button class="btn" onclick="closeModal()">취소</button><button class="btn btn-primary" onclick="saveEditTI('${jsAttr(x.serial||'')}')">💾 저장</button></div></div>`;
   document.getElementById('mbg').style.display='flex';
 }
 async function saveEditTI(serial){if(!serial){toast('시리얼 없는 항목은 편집 불가');return;}
@@ -1164,7 +1164,7 @@ function availCell(model,ds){
     ? `이 날 <b style="color:${av>0?'#16a34a':'#dc2626'}">${av>0?av+'대 데모 가능':'가용 없음'}</b> <span class="muted">(보유 ${fleet} − 데모중 ${occ.length})</span>`
     : `이 날 <b style="color:#1d4ed8">데모중 ${occ.length}대</b> <span class="muted">· 보유 미설정이라 가용은 계산 안 됨 (보유 입력 시 ${occ.length}대 빼서 계산)</span>`;
   document.getElementById('modal').classList.add('recs');
-  document.getElementById('modal').innerHTML=`<div class="mh"><h3>${esc(model)} · ${ds} <span class="muted" style="font-size:12px;font-weight:500">${set?'가용 '+av+'/'+fleet+'대':'데모중 '+occ.length+'대'}</span></h3><button class="x" onclick="closeModal()">×</button></div><div class="mb"><div style="font-size:15px;margin-bottom:6px">${headLine}</div><div class="muted" style="font-size:11.5px;margin-bottom:10px">아래는 이 날 <b>데모중(사외에 나가있는)</b> 장비 목록입니다. '확인' 표시는 종료일이 없거나 임시값이라 실제로 끝났을 수 있는 건 — 철수 처리하면 데모중에서 빠집니다.</div><div style="overflow:auto"><table><thead><tr><th>병원</th><th>시리얼</th><th>데모 기간</th><th>담당</th></tr></thead><tbody>${rows}</tbody></table></div></div><div class="mf"><div class="muted" style="font-size:11.5px">행 클릭 → 해당 데모(철수 처리)</div><button class="btn btn-primary" onclick="closeModal();openEq(null,{kind:'데모',equipment:'${model.replace(/'/g,'')}',start_date:'${ds}'})">＋ 이 날 데모 잡기</button></div>`;
+  document.getElementById('modal').innerHTML=`<div class="mh"><h3>${esc(model)} · ${ds} <span class="muted" style="font-size:12px;font-weight:500">${set?'가용 '+av+'/'+fleet+'대':'데모중 '+occ.length+'대'}</span></h3><button class="x" onclick="closeModal()">×</button></div><div class="mb"><div style="font-size:15px;margin-bottom:6px">${headLine}</div><div class="muted" style="font-size:11.5px;margin-bottom:10px">아래는 이 날 <b>데모중(사외에 나가있는)</b> 장비 목록입니다. '확인' 표시는 종료일이 없거나 임시값이라 실제로 끝났을 수 있는 건 — 철수 처리하면 데모중에서 빠집니다.</div><div style="overflow:auto"><table><thead><tr><th>병원</th><th>시리얼</th><th>데모 기간</th><th>담당</th></tr></thead><tbody>${rows}</tbody></table></div></div><div class="mf"><div class="muted" style="font-size:11.5px">행 클릭 → 해당 데모(철수 처리)</div><button class="btn btn-primary" onclick="closeModal();openEq(null,{kind:'데모',equipment:'${jsAttr(model)}',start_date:'${ds}'})">＋ 이 날 데모 잡기</button></div>`;
   document.getElementById('mbg').style.display='flex';
 }
 
@@ -1470,7 +1470,7 @@ async function delCount(id){if(!confirm('이 실사 기록을 삭제할까요?')
 function dlCountCsv(id){const c=(INV.counts||[]).find(x=>x.id===id);if(!c)return;const rows=c.lines.map(l=>[l.serial,l.model,l.location,l.expected,l.counted==null?'':l.counted,l.result||'미확인',l.note]);(c.extra||[]).forEach(e=>rows.push([e.serial,e.model,'','','','신규발견',e.note||'']));dlCsv('실사_'+c.date+'.csv',['시리얼','모델','위치','장부수량','실사수량','결과','메모'],rows);toast('CSV ✓');}
 
 // ── 장비 한 대 통합 조회 (시리얼 360: 위치·이력·데모·보상 한 화면) ──
-function openAssetCard(serial){serial=String(serial||'').trim();if(!serial)return;const sk=serial.replace(/'/g,"\\'");
+function openAssetCard(serial){serial=String(serial||'').trim();if(!serial)return;const sk=jsAttr(serial);
   const moves=EMOVES.filter(e=>String(e.serial||'').trim()===serial).sort((a,b)=>(a.start_date||'').localeCompare(b.start_date||''));
   const snap=assetSnapshot(today());const a=snap.find(x=>x.serial===serial)||{serial,model:(moves[moves.length-1]||{}).equipment||'',status:'?',location:'-',handler:'',unitCost:null};
   const hset=[...new Set(moves.map(m=>hnorm(m.hospital)).filter(Boolean))];
@@ -1494,7 +1494,7 @@ function assetSearch(q){q=(q||'').trim();if(!q)return;const ql=q.toLowerCase();c
   const exact=snap.find(x=>String(x.serial).toLowerCase()===ql);if(exact){openAssetCard(exact.serial);return;}
   const matches=snap.filter(x=>((x.serial||'')+' '+(x.model||'')).toLowerCase().indexOf(ql)>=0);  // 정체(시리얼·모델)로만 매칭 · 병원은 거래처조회로
   if(matches.length===1){openAssetCard(matches[0].serial);return;}
-  if(matches.length>1){const rows=matches.slice(0,100).map(x=>`<tr class="clk" onclick="openAssetCard('${String(x.serial).replace(/'/g,"\\'")}')"><td><b>${esc(serN(x.serial))}</b></td><td>${esc(x.model)}</td><td>${invStChip(x.status)}</td><td>${esc(x.location)||'-'}</td></tr>`).join('');
+  if(matches.length>1){const rows=matches.slice(0,100).map(x=>`<tr class="clk" onclick="openAssetCard('${jsAttr(x.serial)}')"><td><b>${esc(serN(x.serial))}</b></td><td>${esc(x.model)}</td><td>${invStChip(x.status)}</td><td>${esc(x.location)||'-'}</td></tr>`).join('');
     document.getElementById('modal').classList.add('recs');
     document.getElementById('modal').innerHTML=`<div class="mh"><h3>🔎 "${esc(q)}" <span class="muted" style="font-size:12px;font-weight:500">${matches.length}대</span></h3><button class="x" onclick="closeModal()">×</button></div><div class="mb" style="padding:0"><div style="overflow:auto;max-height:64vh"><table><thead><tr><th>시리얼</th><th>모델</th><th>상태</th><th>위치</th></tr></thead><tbody>${rows}</tbody></table></div></div><div class="mf"><div class="muted" style="font-size:11.5px">행 클릭 → 통합 자산 카드</div><button class="btn" onclick="closeModal()">닫기</button></div>`;
     document.getElementById('mbg').style.display='flex';return;}
