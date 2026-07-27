@@ -508,6 +508,8 @@ function notifBar(){
   return h;
 }
 function byDate(d){return all().filter(x=>x.date===d).sort((a,b)=>(a.time||'').localeCompare(b.time||''));}
+function _mvDemos(){return (typeof EMOVES!=='undefined'?EMOVES:[]).filter(e=>e&&e.kind==='데모').map(e=>({id:e.id,date:e.start_date||'',time:'',cust:e.hospital||'',sales:e.handler||'',bs:'',product:e.equipment||'',content:'',outcome:'',demo_type:'',status:(e.end_date?'done':'planned'),source:'move',parts:[]}));}
+function demoAll(){let a=SYNC.concat(OWN).concat(_mvDemos());if(fSales)a=a.filter(x=>x.sales===fSales);if(fStatus)a=a.filter(x=>x.status===fStatus);if(fBs)a=a.filter(x=>x.bs===fBs);return a;}
 function weekStart(ref){const x=new Date(ref);const day=(x.getDay()+6)%7;x.setHours(0,0,0,0);x.setDate(x.getDate()-day);return x;}
 function fmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function salesList(){return[...new Set(all().map(x=>x.sales).filter(Boolean))].sort();}
@@ -622,8 +624,8 @@ function calMonth(){
 
 // ── 목록 ──
 function viewList(){
-  let evs=all().slice().sort((a,b)=>(b.date+(b.time||'')).localeCompare(a.date+(a.time||'')));
-  const rows=evs.length?evs.map(e=>{const pk=packed(e);return `<tr onclick="openView('${e.id}')"><td>${e.date} <span class="muted" style="color:var(--muted)">${e.time||''}</span>${isNew(e)?' <span class="newbadge">NEW</span>':''}</td>
+  let evs=demoAll().slice().sort((a,b)=>(b.date+(b.time||'')).localeCompare(a.date+(a.time||'')));
+  const rows=evs.length?evs.map(e=>{const pk=packed(e);return `<tr onclick="${e.source==='move'?'openEq':'openView'}('${e.id}')"><td>${e.date} <span class="muted" style="color:var(--muted)">${e.time||''}</span>${isNew(e)?' <span class="newbadge">NEW</span>':''}</td>
     <td><b style="color:var(--ink)">${esc(e.cust)||'-'}</b></td>
     <td>${esc(e.sales)||'-'}${e.bs?`<div class="muted" style="color:var(--muted);font-size:11px">🚚 ${esc(e.bs)}</div>`:''}</td>
     <td>${esc(e.product)||'-'}${pk.t?` <span class="pk ${pk.n===pk.t?'ok':''}">📦${pk.n}/${pk.t}</span>`:''}</td>
@@ -635,7 +637,7 @@ function viewList(){
 
 // ── 통계 ──
 function viewStats(){
-  const A=all();const ws=weekStart(new Date()),we=new Date(ws);we.setDate(we.getDate()+7);
+  const A=demoAll();const ws=weekStart(new Date()),we=new Date(ws);we.setDate(we.getDate()+7);
   const inWeek=x=>{const d=new Date(x.date);return d>=ws&&d<we;};
   const t=today();
   const kpis=[
