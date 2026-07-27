@@ -461,7 +461,7 @@ async function enter(user){
   await Promise.all([loadOwn,loadEquip(),loadFleet(),loadTradein(),loadInv()]);
   afterLoad();
 }
-function afterLoad(){if(DEMO&&!SYNC.length)seedSync();if(!lastSeen())markSeenSilent();document.getElementById('boot-ov').style.display='none';document.getElementById('app').style.display='block';
+function afterLoad(){if(DEMO&&!SYNC.length&&(location.hostname==="localhost"||location.hostname==="127.0.0.1"))seedSync();if(!lastSeen())markSeenSilent();document.getElementById('boot-ov').style.display='none';document.getElementById('app').style.display='block';
   // 초기 페이지: ① 유효 딥링크 해시 > ② 새로고침/뒤로가기 진입이면 sessionStorage 저장 페이지 > ③ 기본 home
   const raw=(location.hash||'').replace(/^#/,'');let v=VIEWS.indexOf(raw)>=0?raw:'';
   if(!v){let nt='';try{const en=performance.getEntriesByType('navigation');nt=(en&&en[0]&&en[0].type)||'';}catch(e){}
