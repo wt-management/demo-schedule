@@ -1205,7 +1205,7 @@ function viewHome(){
   const t=today();const A=OWN.concat(SYNC);
   const ws=weekStart(new Date()),we=new Date(ws);we.setDate(we.getDate()+7);const wsS=fmtDate(ws),weS=fmtDate(we);
   const inWeek=x=>{const d=new Date(x.date);return d>=ws&&d<we;};
-  const demoMoves=EMOVES.filter(e=>e.kind==='데모'||e.kind==='대체');  // 실제 데모=장비이동(EMOVES) 기준(demo_schedules는 비어있어 0으로 떴었음)
+  const demoMoves=EMOVES.filter(e=>e.kind==='데모');  // 실제 데모=장비이동(EMOVES) 기준(demo_schedules는 비어있어 0으로 떴었음)
   const todayDemo=demoMoves.filter(e=>e.start_date===t).concat(OWN.filter(x=>x.date===t));
   const weekDemo=demoMoves.filter(e=>e.start_date>=wsS&&e.start_date<weS).concat(OWN.filter(inWeek));
   const overdueDemo=A.filter(x=>x.status==='planned'&&x.date<t);
